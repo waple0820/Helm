@@ -13,6 +13,9 @@
   'use strict';
 
   const SCHEMA_VERSION = 'HDOC/1.0';
+  // Increment when validation semantics change so stored revisions can refresh
+  // their derived health report without changing immutable HTML bytes.
+  const VALIDATOR_VERSION = 2;
   const DOCUMENT_TYPES = new Set(['report', 'brief', 'reference', 'dashboard', 'note']);
   const UTC_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/;
   const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
@@ -423,5 +426,5 @@
     };
   }
 
-  return Object.freeze({ SCHEMA_VERSION, validate });
+  return Object.freeze({ SCHEMA_VERSION, VALIDATOR_VERSION, validate });
 }));

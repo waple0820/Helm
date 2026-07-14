@@ -6,7 +6,12 @@ const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
 const MAX_SEARCH_TEXT = 250000;
 const AGENT_BRIDGE_URL = 'http://127.0.0.1:4175';
 const CHANNEL_API_URL = '/api/channels';
-const BUILTIN_CONTENT_VERSION = 2;
+const BUILTIN_CONTENT_VERSION = 3;
+const MANAGED_WELCOME_REVISION_IDS = new Set([
+  // Official v1 Welcome shipped by Helm. User-edited copies have a different
+  // content-addressed Revision ID and are never replaced by this migration.
+  'sha256:b64dad9e6fe8ed89a2738621bbecf5c2c1686460b6b49a2a789c1abce51303af'
+]);
 const channelRepository = globalThis.HelmChannelStore?.defaultRepository;
 
 const templates = [
@@ -91,9 +96,9 @@ function knownProjects() {
   });
 }
 
-async function getAll() {
+async function getAll(options = {}) {
   if (!channelRepository) throw new Error('Helm Channels repository is unavailable.');
-  const records = await channelRepository.listDocuments();
+  const records = await channelRepository.listDocuments(options);
   return Promise.all(records.filter(Boolean).map(async (record) => ({ ...record, revisions: await channelRepository.listRevisions(record.id) })));
 }
 
@@ -113,12 +118,12 @@ async function loadRequiredLineageSources() {
   }
 }
 
-async function saveDocument(artifact) {
+async function saveDocument(artifact, options = {}) {
   const existing = await channelRepository.getArtifact(artifact.id);
   const result = await channelRepository.createOrRevise(artifact, {
     artifactId: artifact.id,
     expectedCurrentRevisionId: existing?.currentRevisionId,
-    updateCatalog: Boolean(existing)
+    updateCatalog: Boolean(existing) && options.updateCatalog !== false
   });
   return { ...result.document, revisions: await channelRepository.listRevisions(artifact.id) };
 }
@@ -219,6 +224,46 @@ function inspectHtml(html) {
   return { valid: false, score: 0, manifest, extractedText: safeText(content?.textContent).replace(/\s+/g, ' '), issues: [{ severity: 'warning', code: 'validator-unavailable', message: 'Contract inspection was unavailable in this browser.' }] };
 }
 
+function derivedRevisionData(html, identity = {}) {
+  const inspection = inspectHtml(html);
+  const validatorVersion = Number(globalThis.HelmValidator?.VALIDATOR_VERSION);
+  const issues = Array.isArray(inspection.issues) ? [...inspection.issues] : [];
+  const sourceDocumentId = safeText(identity.sourceDocumentId, safeText(inspection.manifest?.id));
+  if (identity.identityState === 'catalog-copy' && sourceDocumentId && !issues.some((issue) => issue.code === 'catalog-copy-identity')) {
+    issues.unshift({ severity: 'warning', code: 'catalog-copy-identity', message: `Source manifest ID “${sourceDocumentId}” already exists here. This is an explicit catalog copy with library ID “${safeText(identity.id)}”; its original HTML was not renamed.` });
+  }
+  return {
+    contentText: safeText(inspection.extractedText).slice(0, MAX_SEARCH_TEXT),
+    validation: {
+      valid: Boolean(inspection.valid),
+      hasManifest: Boolean(inspection.manifest),
+      score: Number.isFinite(inspection.score) ? inspection.score : 0,
+      issues
+    },
+    ...(Number.isInteger(validatorVersion) && validatorVersion > 0 ? { derivedVersion: validatorVersion } : {})
+  };
+}
+
+function isManagedWelcome(artifact) {
+  return artifact?.id === 'welcome-to-helm' && MANAGED_WELCOME_REVISION_IDS.has(artifact.currentRevisionId || `sha256:${artifact.contentHash}`);
+}
+
+async function refreshStoredValidation(records) {
+  const validatorVersion = Number(globalThis.HelmValidator?.VALIDATOR_VERSION);
+  if (typeof globalThis.HelmValidator?.validate !== 'function' || !Number.isInteger(validatorVersion) || validatorVersion < 1) {
+    console.error('Helm validator is unavailable; stored Revision health was left unchanged.');
+    return getAll();
+  }
+  for (const artifact of records) {
+    for (const revision of artifact.revisions || []) {
+      if (revision.derivedVersion === validatorVersion) continue;
+      const derived = derivedRevisionData(revision.html, artifact);
+      await channelRepository.updateRevisionDerivedData(artifact.id, revision.id, derived);
+    }
+  }
+  return getAll();
+}
+
 function preferredId(value, title) {
   return typeof value === 'string' && /^[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?$/.test(value) ? value : slug(title);
 }
@@ -257,11 +302,8 @@ function enrichArtifact(record, options = {}) {
   const project = normaliseProject(input.project || manifest.project, inferredProject);
   const core = new Set(['id', 'title', 'type', 'tags', 'summary', 'source', 'project', 'createdAt', 'updatedAt', 'html', 'contentText', 'validation', 'sourceDocumentId', 'identityState']);
   const extensions = Object.fromEntries(Object.entries(input).filter(([key]) => !core.has(key)));
-  const issues = Array.isArray(inspection.issues) ? [...inspection.issues] : [];
-  if (identityState === 'catalog-copy' && !issues.some((issue) => issue.code === 'catalog-copy-identity')) {
-    issues.unshift({ severity: 'warning', code: 'catalog-copy-identity', message: `Source manifest ID “${sourceDocumentId}” already exists here. This is an explicit catalog copy with library ID “${id}”; its original HTML was not renamed.` });
-  }
-  return { ...extensions, id, sourceDocumentId: sourceDocumentId || null, identityState, title, type, tags, summary, source, project, createdAt, updatedAt, html: input.html, contentText: safeText(inspection.extractedText).slice(0, MAX_SEARCH_TEXT), validation: { valid: Boolean(inspection.valid), hasManifest: Boolean(inspection.manifest), score: Number.isFinite(inspection.score) ? inspection.score : 0, issues } };
+  const derived = derivedRevisionData(input.html, { id, sourceDocumentId, identityState });
+  return { ...extensions, id, sourceDocumentId: sourceDocumentId || null, identityState, title, type, tags, summary, source, project, createdAt, updatedAt, html: input.html, ...derived };
 }
 
 async function initialise() {
@@ -269,7 +311,8 @@ async function initialise() {
     if (!channelRepository) throw new Error('Helm Channels repository is unavailable.');
     await channelRepository.open();
     setAppearance(await getSetting('appearanceMode'));
-    const stored = await getAll();
+    let stored = await getAll({ includeArchived: true });
+    stored = await refreshStoredValidation(stored);
     const initialized = await getSetting('libraryInitialized');
     if (!initialized && !stored.length) {
       const seeded = seedDocuments.map((artifact) => ({ ...artifact, html: seedHtml(artifact) }));
@@ -279,10 +322,10 @@ async function initialise() {
     }
     const builtinVersion = Number(await getSetting('builtinContentVersion') || 0);
     const welcome = documents.find((artifact) => artifact.id === 'welcome-to-helm');
-    if (builtinVersion < BUILTIN_CONTENT_VERSION && welcome?.source === 'Helm' && welcome.html.includes('Template visual · replace before handoff')) {
+    if (builtinVersion < BUILTIN_CONTENT_VERSION && isManagedWelcome(welcome)) {
       const definition = seedDocuments.find((artifact) => artifact.id === 'welcome-to-helm');
       const upgraded = enrichArtifact({ ...definition, html: seedHtml(definition) }, { preserveId: true, takenIds: new Set(documents.map((artifact) => artifact.id)) });
-      const saved = await saveDocument(upgraded);
+      const saved = await saveDocument(upgraded, { updateCatalog: false });
       documents = documents.map((artifact) => artifact.id === saved.id ? saved : artifact);
     }
     await setSetting('builtinContentVersion', BUILTIN_CONTENT_VERSION);
@@ -892,11 +935,13 @@ async function restoreImportedArtifact(artifact) {
   let expectedCurrentRevisionId;
   for (const revision of history) {
     const parent = revision.parent && (await channelRepository.getRevision(revision.parent.artifactId, revision.parent.revisionId)) ? revision.parent : undefined;
+    const derived = typeof globalThis.HelmValidator?.validate === 'function'
+      ? derivedRevisionData(revision.html, artifact)
+      : { contentText: revision.contentText || '', validation: revision.validation || null, ...(revision.derivedVersion ? { derivedVersion: revision.derivedVersion } : {}) };
     const result = await channelRepository.createOrRevise({
       ...catalog,
       html: revision.html,
-      contentText: revision.contentText || '',
-      validation: revision.validation || null,
+      ...derived,
       authoredAt: revision.authoredAt,
       author: revision.author,
       updatedAt: revision.authoredAt || revision.createdAt || artifact.updatedAt

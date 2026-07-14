@@ -25,7 +25,7 @@
   ]);
   const REVISION_INPUT_FIELDS = new Set([
     ...ARTIFACT_FIELDS, 'html', 'contentText', 'validation', 'share', 'revisionId',
-    'contentHash', 'parent', 'authoredAt', 'author'
+    'contentHash', 'parent', 'authoredAt', 'author', 'derivedVersion'
   ]);
 
   class ChannelStoreError extends Error {
@@ -183,6 +183,7 @@
       html: input.html,
       contentText: typeof input.contentText === 'string' ? input.contentText : '',
       validation: input.validation === undefined ? null : cloneJson(input.validation, 'validation'),
+      derivedVersion: Number.isInteger(input.derivedVersion) && input.derivedVersion > 0 ? input.derivedVersion : null,
       sourceManifestId: safeString(input.sourceDocumentId) || null,
       share: options.share === undefined || options.share === null ? null : cloneJson(options.share, 'share')
     };
@@ -195,6 +196,7 @@
       html: revision.html,
       contentText: revision.contentText || '',
       validation: revision.validation,
+      derivedVersion: revision.derivedVersion || null,
       share: revision.share,
       revisionId: revision.id,
       contentHash: revision.contentHash,
@@ -485,6 +487,28 @@
       return getDocument(id);
     }
 
+    async function updateRevisionDerivedData(artifactId, revisionId, patch) {
+      await open();
+      if (!isPlainObject(patch)) throw new TypeError('Revision derived-data patch must be an object.');
+      const allowed = new Set(['contentText', 'validation', 'derivedVersion']);
+      const forbidden = Object.keys(patch).filter((key) => !allowed.has(key));
+      if (forbidden.length) throw new ChannelStoreError('invalid-revision-derived-patch', `Revision derived fields cannot update: ${forbidden.join(', ')}.`);
+      const db = await database();
+      const tx = db.transaction(REVISION_STORE, 'readwrite');
+      const store = tx.objectStore(REVISION_STORE);
+      const revision = await requestResult(store.get([artifactId, revisionId]));
+      if (!revision) { tx.abort(); throw new ChannelStoreError('missing-revision', `Revision ${artifactId}/${revisionId} does not exist.`); }
+      const updated = {
+        ...revision,
+        ...(patch.contentText !== undefined ? { contentText: typeof patch.contentText === 'string' ? patch.contentText : '' } : {}),
+        ...(patch.validation !== undefined ? { validation: patch.validation === null ? null : cloneJson(patch.validation, 'validation') } : {}),
+        ...(patch.derivedVersion !== undefined ? { derivedVersion: Number.isInteger(patch.derivedVersion) && patch.derivedVersion > 0 ? patch.derivedVersion : null } : {})
+      };
+      store.put(updated);
+      await transactionDone(tx);
+      return updated;
+    }
+
     async function setStatus(id, status, options = {}) {
       await open();
       if (!STATUSES.has(status)) throw new TypeError(`Unknown artifact status: ${status}.`);
@@ -625,6 +649,7 @@
       listDocuments,
       createOrRevise,
       updateCatalog,
+      updateRevisionDerivedData,
       setStatus,
       setRevisionShare,
       revokePublication,

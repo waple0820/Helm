@@ -72,6 +72,21 @@
       revisions = await store.listRevisions('artifact-one');
       assert(revisions.length === 2 && revisions[0].html === originalHtml, 'catalog update creates no revision');
 
+      const immutableBeforeRefresh = { html: revisions[0].html, contentHash: revisions[0].contentHash, parent: revisions[0].parent, share: revisions[0].share };
+      const artifactBeforeRefresh = await store.getArtifact('artifact-one');
+      const derived = await store.updateRevisionDerivedData('artifact-one', revisions[0].id, { contentText: 'refreshed search text', validation: { valid: false, score: 96, issues: [{ code: 'new-check', severity: 'warning' }] }, derivedVersion: 2 });
+      assert(derived.html === immutableBeforeRefresh.html && derived.contentHash === immutableBeforeRefresh.contentHash && JSON.stringify(derived.parent) === JSON.stringify(immutableBeforeRefresh.parent) && JSON.stringify(derived.share) === JSON.stringify(immutableBeforeRefresh.share) && derived.contentText === 'refreshed search text' && derived.validation.score === 96 && derived.derivedVersion === 2, 'derived validation refresh preserves immutable Revision identity, lineage, and share');
+      const artifactAfterRefresh = await store.getArtifact('artifact-one');
+      assert(artifactAfterRefresh.status === artifactBeforeRefresh.status && artifactAfterRefresh.currentRevisionId === artifactBeforeRefresh.currentRevisionId && artifactAfterRefresh.publishedRevisionId === artifactBeforeRefresh.publishedRevisionId, 'derived validation refresh cannot move Channel workflow pointers');
+      const childBeforeRefresh = await store.getRevision('artifact-one', second.revision.id);
+      const childDerived = await store.updateRevisionDerivedData('artifact-one', second.revision.id, { contentText: 'refreshed child text', validation: { valid: true, score: 100 }, derivedVersion: 2 });
+      assert(childDerived.parent.artifactId === childBeforeRefresh.parent.artifactId && childDerived.parent.revisionId === childBeforeRefresh.parent.revisionId, 'derived validation refresh preserves non-empty Revision lineage');
+      assert((await store.listRevisions('artifact-one')).length === 2, 'derived validation refresh creates no revision');
+      let rejectedDerivedPatch = false;
+      try { await store.updateRevisionDerivedData('artifact-one', revisions[0].id, { html: '<html>mutated</html>' }); }
+      catch (error) { rejectedDerivedPatch = error.code === 'invalid-revision-derived-patch'; }
+      assert(rejectedDerivedPatch && (await store.getRevision('artifact-one', revisions[0].id)).html === originalHtml, 'derived validation API rejects immutable revision fields');
+
       let conflict = false;
       try { await store.createOrRevise({ ...legacy, html: '<html>conflict</html>' }, { expectedCurrentRevisionId: revisions[0].id }); }
       catch (error) { conflict = error.code === 'head-conflict'; }
