@@ -22,6 +22,8 @@ Helm keeps finished HTML reports, briefs, dashboards, and research as durable pr
 
 ## Start in one minute
 
+The machine running Helm-aware agents must have outbound Internet access so it can clone or update the repository and let agents reach the external sources used in their reports. The Helm library itself has no third-party runtime dependency and can continue serving retained local artifacts after the repository has been cloned.
+
 ```bash
 git clone https://github.com/waple0820/html-displayer.git
 cd html-displayer
