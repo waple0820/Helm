@@ -25,8 +25,11 @@ class TemplateContractTests(unittest.TestCase):
                 self.assertEqual(manifest["schema_version"], "HDOC/1.0")
                 self.assertTrue(manifest["id"])
                 self.assertTrue(manifest["project"]["id"])
+                self.assertTrue(manifest["presentation"]["profile"])
+                self.assertTrue(manifest["presentation"]["claims"])
                 self.assertIn("<main data-document-root>", html)
                 self.assertEqual(html.lower().count("<h1"), 1)
+                self.assertIn("data-helm-component=", html)
 
 
 if __name__ == "__main__":

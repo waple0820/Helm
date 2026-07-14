@@ -2,11 +2,39 @@
 
 For Codex-style agents, begin with [`docs/CODEX-MEMORY.md`](docs/CODEX-MEMORY.md). It contains the repository-scoped context to inject when the host supports project memory, plus the deterministic handoff workflow when it does not.
 
-Before generating any HTML intended for this repository, read [`docs/HTML-DOCUMENT-SPEC.md`](docs/HTML-DOCUMENT-SPEC.md) in full and comply with `HDOC/1.0`. Then read [`docs/REPORT-DESIGN-STANDARD.md`](docs/REPORT-DESIGN-STANDARD.md) and choose the report shape that fits the document type.
+Before generating any HTML intended for this repository, read [`docs/HTML-DOCUMENT-SPEC.md`](docs/HTML-DOCUMENT-SPEC.md) in full and comply with `HDOC/1.0`. Then read [`docs/REPORT-DESIGN-STANDARD.md`](docs/REPORT-DESIGN-STANDARD.md). Use [`scripts/helm-report`](scripts/helm-report) to select a report Profile and compose registered visual components instead of recreating a report from prose instructions.
 
 The output must be a complete standalone `.html` document — not Markdown, a component, or a code fragment. Include the Helm manifest, the duplicate `helm:*` metadata, semantic `<main data-document-root>`, embedded essential styles, and factual provenance. Put the current Codex/project workspace in the optional `manifest.project` object (`id` + recognizable `name`) so Helm can group the artifact at project level before type and tags. Use the templates in [`templates/`](templates/) as working examples.
 
-Design direction: calm, evidence-forward report. The artifact should optimize for reading and later recovery, not landing-page conversion. Lead with the reader's question and the short answer; make the path through evidence, interpretation, and the next action or boundary explicit. When the reader needs to compare, trace a sequence, understand scope, see change, or judge uncertainty, choose one to three conclusion-led visual evidence modules from `docs/REPORT-DESIGN-STANDARD.md`. Use inline SVG or semantic HTML/CSS, not a runtime chart library or decorative image; each figure needs labels, evidence state, source/method or scope note, and a text/table fallback. Keep sources, data dates, assumptions, and confidence near the claims they qualify. Do not add dependencies on a host application, external scripts, authentication, or untrusted executable code.
+Design direction: calm, evidence-forward report. The artifact should optimize for reading and later recovery, not landing-page conversion. Lead with the reader's question and the short answer; make the path through evidence, interpretation, and the next action or boundary explicit. Before writing HTML, inventory the material claims and label each important relationship: comparison, sequence, hierarchy, magnitude, composition, uncertainty, claim strength, comparable cases, or action/checkpoint. Bind every relationship to the smallest registered component and declare that Claim–component mapping in `manifest.presentation.claims`. Use inline SVG or semantic HTML/CSS, not a runtime chart library or decorative image; each component needs a named claim, evidence state, source/method, scope boundary, and text/table fallback. Keep sources, data dates, assumptions, and confidence near the claims they qualify. Do not add dependencies on a host application, external scripts, authentication, or untrusted executable code.
+
+## Agent authoring workflow
+
+List the available Profiles and components:
+
+```bash
+scripts/helm-report list
+```
+
+Start from the closest Profile. Profiles supply a useful default composition; `--components` may replace it when the claim inventory requires another grammar.
+
+```bash
+scripts/helm-report new \
+  --profile benchmark \
+  --title "Decision-relevant title" \
+  --id stable-artifact-id \
+  --project-id project-workspace \
+  --project-name "Project workspace" \
+  --output output.html
+```
+
+Replace every outlined specimen with real content, update its `data-evidence-state`, `data-source`, and `data-scope`, and remove the `placeholder` class. Do not preserve a component whose underlying relationship is absent. Do not leave a material relationship prose-only merely because the Profile omitted it. Then run:
+
+```bash
+scripts/helm-report check output.html
+```
+
+The check must pass before `helm-submit`. The rendered component catalog is [`authoring/component-gallery.html`](authoring/component-gallery.html).
 
 ## Report preflight
 
@@ -19,7 +47,7 @@ Before returning the file, verify that a reader can see the following without in
 5. Provenance for factual claims: source, date, method, assumption, or confidence as appropriate.
 6. Every material relationship has the smallest useful visual treatment — comparison, evidence route, flow, boundary diagram, metric, or range — or an explicit reason it does not need one.
 
-The shipped templates are the default starting point. Use `research-dossier.html` for an evidence-led answer, `decision-brief.html` for a choice and trade-off, `reference-note.html` for reusable knowledge, and `agent-handoff.html` for a reviewable result.
+The authoring CLI is the default starting point for substantial artifacts. The files in `templates/` remain compact examples and compatibility starters; use `research`, `benchmark`, `architecture`, `decision`, or `handoff` Profiles when the result needs deliberate visual evidence.
 
 ## Optional automatic handoff to Helm
 

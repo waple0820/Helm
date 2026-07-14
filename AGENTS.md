@@ -4,6 +4,8 @@ Start by reading [`docs/CODEX-MEMORY.md`](docs/CODEX-MEMORY.md). If the current 
 
 For any AI-generated HTML that is meant to be retained, read [`AI-GUIDE.md`](AI-GUIDE.md), [`docs/REPORT-DESIGN-STANDARD.md`](docs/REPORT-DESIGN-STANDARD.md), and the full [`docs/HTML-DOCUMENT-SPEC.md`](docs/HTML-DOCUMENT-SPEC.md) before writing it. Produce one complete, self-contained `HDOC/1.0` file; do not submit Markdown fragments, partial drafts, or executable HTML. The report must be answer-first: make the route from question or decision to evidence, interpretation, and next action or boundary visible rather than producing a landing-page-style document.
 
+For a substantial report, do not imitate the visual style from prose alone. Run `scripts/helm-report list`, select the closest Profile, scaffold the report with `scripts/helm-report new`, and bind each important relationship to a registered component. Replace all specimen content, remove every `placeholder` marker, and make `scripts/helm-report check output.html` pass before submission. The rendered vocabulary is in [`authoring/component-gallery.html`](authoring/component-gallery.html).
+
 For a local clone, run this once before the first handoff:
 
 ```bash

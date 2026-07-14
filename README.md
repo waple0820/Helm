@@ -16,7 +16,7 @@ Helm keeps finished HTML reports, briefs, dashboards, and research as durable pr
 ## Why Helm
 
 - **Originals remain evidence.** Helm indexes, exports, backs up, and shares the exact HTML bytes; it never silently rewrites the source artifact.
-- **Agents have a contract.** `HDOC/1.0`, report templates, and the checked-in agent guide make artifacts portable across projects and agents.
+- **Agents have an authoring system.** `HDOC/1.0`, report Profiles, reusable visual components, and a preflight linter turn evidence into portable reports instead of prose with a borrowed skin.
 - **The owner keeps control.** Agent output arrives in a reviewable inbox. Browser storage, imports, and intranet publication remain deliberate human actions.
 - **Artifacts have history.** Immutable revisions, Draft / Reviewed / Published state, visual comparison, Fork lineage, and a stable Channel address keep change legible without rewriting evidence.
 
@@ -63,6 +63,17 @@ From the project that produced a final report, brief, reference note, or dashboa
 
 The final artifact appears in **Agent inbox** for review and explicit import. Read [`AGENTS.md`](AGENTS.md) first when authoring with an agent; [`AI-GUIDE.md`](AI-GUIDE.md) contains the concise generation entry point.
 
+For substantial reports, scaffold the visual grammar before writing the final HTML:
+
+```bash
+scripts/helm-report list
+scripts/helm-report new --profile benchmark --title "Report title" --id report-id --output output.html
+# Replace the outlined specimens with real evidence and remove placeholder markers.
+scripts/helm-report check output.html
+```
+
+Open the rendered [component studio](authoring/component-gallery.html) to inspect the registered KPI, evidence, comparison, magnitude, uncertainty, flow, hierarchy, trace, case, and roadmap components.
+
 ## Repository guide
 
 | Path | Purpose |
@@ -72,8 +83,10 @@ The final artifact appears in **Agent inbox** for review and explicit import. Re
 | [`helm_bridge.py`](helm_bridge.py) | Loopback-only agent ingress and immutable inbox records. |
 | [`helm_share_server.py`](helm_share_server.py) | Static app plus owner-only publication of immutable read-only share links. |
 | [`docs/`](docs/) | Format contract, architecture, report design, storage, Bridge, and sharing references. |
-| [`templates/`](templates/) | Complete standalone report starters with visual evidence patterns. |
-| [`scripts/`](scripts/) | Clone bootstrap and final agent handoff commands. |
+| [`templates/`](templates/) | Compact standalone compatibility starters. |
+| [`authoring/component-gallery.html`](authoring/component-gallery.html) | Rendered catalog of the reusable visual grammar. |
+| [`scripts/helm-report`](scripts/helm-report) | Agent report Profiles, component scaffolding, Gallery generation, and visual-contract checks. |
+| [`scripts/`](scripts/) | Clone bootstrap, report authoring, and final agent handoff commands. |
 | [`tests/`](tests/) | Contract, Bridge, share-store, and template regression checks. |
 
 Read [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the data boundaries and [`docs/HTML-DOCUMENT-SPEC.md`](docs/HTML-DOCUMENT-SPEC.md) for the interoperable artifact contract.

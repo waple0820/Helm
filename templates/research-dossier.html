@@ -39,7 +39,8 @@
         "created_at": "2026-07-13T00:00:00Z",
         "updated_at": "2026-07-13T00:00:00Z",
         "project": { "id": "project-workspace", "name": "Project workspace" },
-        "provenance": { "author": "your name or agent", "sources": [] }
+        "provenance": { "author": "your name or agent", "sources": [] },
+        "presentation": { "profile": "research", "claims": [{ "id": "C01", "relationship": "evidence route", "component": "sequence" }] }
       }
     </script>
   </head>
@@ -53,7 +54,7 @@
 
       <section class="answer" aria-labelledby="short-answer"><p class="label" id="short-answer">Short answer</p><p>State the decision-relevant conclusion in one or two direct sentences. A reader should understand the current answer before they reach the background or evidence.</p></section>
 
-      <figure class="evidence-route" aria-labelledby="evidence-route-title">
+      <figure class="evidence-route" data-helm-component="sequence" data-helm-claim="C01" data-evidence-state="illustrative" data-source="Template specimen" data-scope="Replace with the real observation, interpretation, and action boundary" aria-labelledby="evidence-route-title">
         <div class="figure-head"><div><p class="label">Visual evidence route</p><h2 id="evidence-route-title">Show how dated evidence earns the current answer.</h2></div><p class="figure-meta">Replace before handoff</p></div>
         <svg viewBox="0 0 700 150" role="img" aria-label="Observation, interpretation, and action form an evidence route"><defs><marker id="route-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" /></marker></defs><path class="route-link" d="M204 75 H244" marker-end="url(#route-arrow)" /><path class="route-link" d="M438 75 H478" marker-end="url(#route-arrow)" /><g transform="translate(0 20)"><rect width="198" height="110" rx="4" /><text class="route-number" x="16" y="25">01</text><text class="route-label" x="16" y="58">Observation</text><text class="route-detail" x="16" y="82">dated source</text></g><g transform="translate(250 20)"><rect width="198" height="110" rx="4" /><text class="route-number" x="16" y="25">02</text><text class="route-label" x="16" y="58">Interpretation</text><text class="route-detail" x="16" y="82">confidence</text></g><g transform="translate(500 20)"><rect width="198" height="110" rx="4" /><text class="route-number" x="16" y="25">03</text><text class="route-label" x="16" y="58">Action</text><text class="route-detail" x="16" y="82">boundary</text></g></svg>
         <figcaption>Use this route only when it reduces the work of following a claim back to evidence. Replace each label with the real observation, interpretation, action, source/date, confidence, and reversal boundary.</figcaption>

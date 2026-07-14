@@ -15,13 +15,15 @@
       const relativeSource = (await (await fetch('../templates/reference-note.html')).text())
         .replace('</main>', '<p><a href="../stage2/report.html">Stage two report</a></p><img src="./chart.png" alt="Chart"></main>');
       const relativeValidation = window.HelmValidator.validate(relativeSource);
+      const gallerySource = await (await fetch('../authoring/component-gallery.html')).text();
+      const galleryValidation = window.HelmValidator.validate(gallerySource);
       const issueCodes = new Set(relativeValidation.issues.map(({ code }) => code));
       const portabilityPassed = relativeValidation.score < 100
         && issueCodes.has('link-resource-local')
         && issueCodes.has('media-resource-local');
-      document.body.dataset.status = failed.length || !portabilityPassed ? 'failed' : 'passed';
-      document.body.textContent = failed.length || !portabilityPassed
-        ? JSON.stringify({ failed, relativeValidation })
+      document.body.dataset.status = failed.length || !portabilityPassed || !galleryValidation.valid || galleryValidation.issues.length ? 'failed' : 'passed';
+      document.body.textContent = failed.length || !portabilityPassed || !galleryValidation.valid || galleryValidation.issues.length
+        ? JSON.stringify({ failed, relativeValidation, galleryValidation })
         : 'passed';
     })().catch((error) => {
       document.body.dataset.status = 'failed';

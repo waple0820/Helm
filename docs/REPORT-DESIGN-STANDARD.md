@@ -41,7 +41,7 @@ Use the document type to select a reader path, not merely a label.
 
 Visual treatment must reveal the relationship in the material. A strong Helm report is often read first through its figures: the reader should be able to locate the conclusion, the comparison, the boundary, or the change before reading every paragraph. This does **not** mean adding generic illustrations or turning every section into a card.
 
-For a report, brief, dashboard, or operational handoff that contains a material comparison, sequence, hierarchy, magnitude, or uncertainty, place one to three visual evidence modules near the claim they clarify. Pick the smallest visual grammar that answers the reader's question:
+For a report, brief, dashboard, or operational handoff, inventory every material comparison, sequence, hierarchy, magnitude, composition, uncertainty, claim-strength distinction, case comparison, or action dependency before writing HTML. Place the smallest useful visual module near each claim it clarifies. A short report may need one; a benchmark dossier may need a sequence of complementary modules. Do not impose an arbitrary report-wide maximum that leaves important relationships prose-only.
 
 | Reader needs to see | Use |
 | --- | --- |
@@ -80,6 +80,27 @@ Use these patterns consistently rather than inventing a new decorative shape for
 | Magnitude or before/after change | Bar, slope, or small multiple | Unit, denominator, baseline, time window, measurement condition |
 | Composition or allocation | Stacked bar or labelled partition | Whole being partitioned and whether parts truly sum to it |
 | Uncertainty or range | Interval/range plot with a plain-language readout | Meaning of interval, sample/run boundary, confidence or percentile |
+| Headline measures | KPI strip | Unit, denominator, direction, time/environment, and why the measure matters |
+| Comparable examples | Case ledger | Same fields, outcome state, evidence, and explicit failure boundary |
+| Part-to-whole execution | Trace decomposition | A real total, non-overlapping parts, units, and measurement or illustrative state |
+| Action and checkpoint | Roadmap rows | Evidence, owner, next action, metric/checkpoint, and reversal condition |
+
+## Agent component contract
+
+Helm components are an authoring API, not visual inspiration. Substantial agent-authored reports should start with `scripts/helm-report`, declare `manifest.presentation.profile`, and bind each planned relationship to a rendered component through `manifest.presentation.claims` and matching DOM attributes:
+
+```html
+<figure
+  data-helm-component="range"
+  data-helm-claim="C03"
+  data-evidence-state="measured"
+  data-source="Benchmark run 2026-07-14"
+  data-scope="50 cases; one environment; milliseconds">
+  ...
+</figure>
+```
+
+The registered vocabulary is intentionally small: KPI strip, evidence ledger, comparison matrix, ranked bars, range, sequence, hierarchy, trace, case ledger, and roadmap. Extend it only when none of these grammars can explain the relationship without distortion. `scripts/helm-report check` verifies the declared Claim–component coverage and rejects unfinished placeholders before handoff.
 
 Use a real screenshot only when the interface itself is evidence. Annotate version/date and sensitive-data treatment. Use generated imagery only for atmosphere or a clearly labelled conceptual metaphor — never as fabricated operational, product, or measurement evidence.
 
@@ -113,7 +134,7 @@ If any answer is no, fix the document structure before refining its skin.
 
 This standard supplements, but does not replace, [`HTML-DOCUMENT-SPEC.md`](HTML-DOCUMENT-SPEC.md). Continue to deliver one self-contained `HDOC/1.0` file with a manifest, duplicate `helm:*` metadata, one semantic `<main data-document-root>`, embedded essential CSS, and provenance.
 
-Start from the closest file in [`templates/`](../templates/) rather than recreating the information architecture. The templates demonstrate an answer-first header, evidence surface, and explicit decision or boundary section; adapt the content, not the document's portability requirements.
+Start a substantial artifact from the closest `scripts/helm-report` Profile rather than recreating the information architecture. The files in [`templates/`](../templates/) remain compact compatibility starters; the authoring kit is the canonical source for composable visual components and pre-handoff checks.
 
 ## Generator instruction
 

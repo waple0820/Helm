@@ -15,12 +15,14 @@
   const SCHEMA_VERSION = 'HDOC/1.0';
   // Increment when validation semantics change so stored revisions can refresh
   // their derived health report without changing immutable HTML bytes.
-  const VALIDATOR_VERSION = 2;
+  const VALIDATOR_VERSION = 3;
   const DOCUMENT_TYPES = new Set(['report', 'brief', 'reference', 'dashboard', 'note']);
   const UTC_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/;
   const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
   const ID_PATTERN = /^[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?$/;
   const GENERIC_LINK_TEXT = new Set(['click here', 'here', 'link', 'more', 'read more', 'this']);
+  const VISUAL_COMPONENTS = new Set(['kpi-strip', 'evidence-ledger', 'comparison-matrix', 'ranked-bars', 'range', 'sequence', 'hierarchy', 'trace', 'case-ledger', 'roadmap']);
+  const EVIDENCE_STATES = new Set(['measured', 'verified', 'interpreted', 'proposed', 'illustrative']);
   const SEVERITY_WEIGHT = { error: 12, warning: 4, info: 0 };
 
   function issue(issues, code, severity, message, location) {
@@ -357,6 +359,73 @@
     });
   }
 
+  function validateVisualEvidence(document, rootElement, manifest, issues) {
+    if (!rootElement) return;
+    const components = [...rootElement.querySelectorAll('[data-helm-component]')];
+    const decisionFacing = ['report', 'brief', 'dashboard'].includes(manifest?.type);
+    if (decisionFacing && !components.length && !rootElement.querySelector('figure, table')) {
+      issue(issues, 'visual-evidence-missing', 'warning', 'Add a meaningful visual component for the report’s material comparison, sequence, hierarchy, magnitude, or uncertainty—or state why prose is sufficient.', 'main[data-document-root]');
+    }
+
+    const renderedClaims = new Map();
+    components.forEach((component, index) => {
+      const name = (component.getAttribute('data-helm-component') || '').trim();
+      const claim = (component.getAttribute('data-helm-claim') || '').trim();
+      const state = (component.getAttribute('data-evidence-state') || '').trim();
+      const label = name || `visual component ${index + 1}`;
+      if (!VISUAL_COMPONENTS.has(name)) {
+        issue(issues, 'visual-component-unknown', 'warning', `Use a registered Helm component name instead of "${name || 'missing'}", or document the extension.`, '[data-helm-component]');
+      }
+      if (!claim) {
+        issue(issues, 'visual-claim-missing', 'warning', `Bind ${label} to a claim with data-helm-claim.`, '[data-helm-component]');
+      } else if (renderedClaims.has(claim)) {
+        issue(issues, 'visual-claim-duplicate', 'warning', `Claim "${claim}" is implemented by more than one component; keep one primary visual or declare separate claims.`, '[data-helm-component]');
+      } else {
+        renderedClaims.set(claim, name);
+      }
+      if (!EVIDENCE_STATES.has(state)) {
+        issue(issues, 'visual-evidence-state', 'warning', `Set ${label} data-evidence-state to measured, verified, interpreted, proposed, or illustrative.`, '[data-helm-component]');
+      }
+      if (!component.getAttribute('data-scope')?.trim()) {
+        issue(issues, 'visual-scope-missing', 'warning', `Add data-scope to ${label} so its environment, denominator, or interpretation boundary stays visible.`, '[data-helm-component]');
+      }
+      if (['measured', 'verified'].includes(state) && !component.getAttribute('data-source')?.trim()) {
+        issue(issues, 'visual-source-missing', 'warning', `Add data-source to ${label}; ${state} evidence must identify its source or method.`, '[data-helm-component]');
+      }
+      if (component.matches('figure') && !component.querySelector('figcaption')) {
+        issue(issues, 'visual-caption-missing', 'warning', `Add a figcaption to ${label} with source, method, and boundary.`, '[data-helm-component]');
+      }
+      const hasGraphic = Boolean(component.querySelector('svg, img, canvas, [role="img"]'));
+      if (hasGraphic && !component.querySelector('[data-helm-fallback], table, ol, ul')) {
+        issue(issues, 'visual-fallback-missing', 'warning', `Add a text, list, or table fallback to ${label}.`, '[data-helm-component]');
+      }
+      if (component.classList.contains('placeholder') || component.hasAttribute('data-placeholder')) {
+        issue(issues, 'visual-placeholder', 'error', `Replace the placeholder content in ${label} and remove its placeholder marker before handoff.`, '[data-helm-component]');
+      }
+    });
+
+    const claims = manifest?.presentation?.claims;
+    if (claims !== undefined && !Array.isArray(claims)) {
+      issue(issues, 'presentation-claims-format', 'warning', 'Set manifest.presentation.claims to an array of claim/component mappings.', 'manifest.presentation.claims');
+      return;
+    }
+    (claims || []).forEach((entry, index) => {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+        issue(issues, 'presentation-claim-format', 'warning', 'Use an object with id, relationship, and component for each presentation claim.', `manifest.presentation.claims[${index}]`);
+        return;
+      }
+      const actual = renderedClaims.get(entry.id);
+      if (!actual) {
+        issue(issues, 'presentation-claim-unrendered', 'error', `Render the declared claim "${entry.id || index + 1}" with its selected component.`, `manifest.presentation.claims[${index}]`);
+      } else if (actual !== entry.component) {
+        issue(issues, 'presentation-component-mismatch', 'error', `Claim "${entry.id}" declares "${entry.component}" but renders "${actual}".`, `manifest.presentation.claims[${index}]`);
+      }
+      if (typeof entry.relationship !== 'string' || !entry.relationship.trim()) {
+        issue(issues, 'presentation-relationship-missing', 'warning', `Name the relationship claim "${entry.id || index + 1}" needs the component to explain.`, `manifest.presentation.claims[${index}].relationship`);
+      }
+    });
+  }
+
   /**
    * Validate an HTML source string against the HDOC/1.0 document contract.
    *
@@ -413,6 +482,7 @@
     validateMetadata(document, manifest, issues);
     const rootElement = validateStructure(document, issues);
     validatePortabilityAndRisk(document, issues);
+    validateVisualEvidence(document, rootElement, manifest, issues);
 
     const score = Math.max(0, 100 - issues.reduce((total, item) => total + SEVERITY_WEIGHT[item.severity], 0));
     const severityOrder = { error: 0, warning: 1, info: 2 };
