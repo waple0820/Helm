@@ -3,8 +3,8 @@
 
 The browser app deliberately owns no server-side state. This companion process
 gives other agents one safe way to hand documents to that local library:
-validate the document, preserve its exact UTF-8 source, and never overwrite a
-different artifact that claims the same stable HDOC ID.
+validate the document, preserve its exact UTF-8 source, and retain every
+revision submitted for the same stable HDOC artifact ID.
 """
 
 from __future__ import annotations
@@ -41,15 +41,6 @@ class ContractError(ValueError):
         super().__init__("; ".join(errors))
         self.errors = errors
         self.warnings = warnings or []
-
-
-class IdentityConflictError(RuntimeError):
-    """A different source already exists for the document's stable ID."""
-
-    def __init__(self, document_id: str, existing: dict[str, Any]):
-        super().__init__(f"A different artifact already exists for ID {document_id!r}.")
-        self.document_id = document_id
-        self.existing = existing
 
 
 class HDOCParser(HTMLParser):
@@ -236,7 +227,15 @@ class BridgeCatalog:
             payload = json.loads(self.catalog_path.read_text(encoding="utf-8"))
             documents = payload.get("documents", {})
             if isinstance(documents, dict):
-                return {key: value for key, value in documents.items() if isinstance(value, dict)}
+                migrated: dict[str, dict[str, Any]] = {}
+                for key, value in documents.items():
+                    if not isinstance(value, dict):
+                        continue
+                    digest = value.get("sha256")
+                    document_id = value.get("id") or key
+                    revision_key = f"{document_id}:{digest}" if isinstance(digest, str) else key
+                    migrated[revision_key] = value
+                return migrated
         except (OSError, json.JSONDecodeError):
             pass
         raise RuntimeError(f"Helm Bridge catalog is unreadable: {self.catalog_path}")
@@ -276,12 +275,14 @@ class BridgeCatalog:
         project = declared_project or self._catalog_project(submitted_project)
         digest = hashlib.sha256(html_bytes).hexdigest()
         with self.lock:
-            existing = self.documents.get(document_id)
+            revision_key = f"{document_id}:{digest}"
+            existing = self.documents.get(revision_key)
             if existing:
-                if existing.get("sha256") == digest:
-                    return "idempotent", {**existing, "warnings": warnings}
-                raise IdentityConflictError(document_id, existing)
-            relative_path = Path("artifacts") / safe_filename(document_id, digest)
+                if (self.data_dir / existing["artifact_path"]).read_bytes() != html_bytes:
+                    raise RuntimeError("Digest-addressed Bridge storage is inconsistent.")
+                return "idempotent", {**existing, "warnings": warnings}
+            prior_revisions = [record for record in self.documents.values() if record.get("id") == document_id]
+            relative_path = Path("artifacts") / f"{document_id}--{digest}.html"
             received_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
             record = {
                 "id": document_id,
@@ -297,13 +298,15 @@ class BridgeCatalog:
                 "source": source[:120] or "unnamed-agent",
                 "received_at": received_at,
                 "sha256": digest,
+                "revision_id": f"sha256:{digest}",
+                "revision_number": len(prior_revisions) + 1,
                 "artifact_path": relative_path.as_posix(),
                 "warnings": warnings,
             }
             atomic_write(self.data_dir / relative_path, html_bytes)
-            self.documents[document_id] = record
+            self.documents[revision_key] = record
             self._save_catalog()
-            return "created", record
+            return ("revision" if prior_revisions else "created"), record
 
     @staticmethod
     def _catalog_project(value: dict[str, Any] | None) -> dict[str, str] | None:
@@ -320,13 +323,16 @@ class BridgeCatalog:
     def list_documents(self) -> list[dict[str, Any]]:
         with self.lock:
             records = []
-            for document_id in sorted(self.documents):
-                records.append(self.read_document(document_id))
+            for revision_key in sorted(self.documents, key=lambda key: self.documents[key].get("received_at", "")):
+                records.append(self.read_document(revision_key))
             return records
 
     def read_document(self, document_id: str) -> dict[str, Any]:
         with self.lock:
             record = self.documents.get(document_id)
+            if not record:
+                matches = [value for value in self.documents.values() if value.get("id") == document_id]
+                record = max(matches, key=lambda value: value.get("received_at", ""), default=None)
             if not record:
                 raise KeyError(document_id)
             try:
@@ -444,13 +450,11 @@ class BridgeRequestHandler(BaseHTTPRequestHandler):
                 return
         try:
             status, record = self.server.catalog.ingest(payload, source, submitted_project)
-            response_status = HTTPStatus.CREATED if status == "created" else HTTPStatus.OK
+            response_status = HTTPStatus.CREATED if status in {"created", "revision"} else HTTPStatus.OK
             self._send_json(response_status, {"status": status, "artifact": record})
         except ContractError as error:
             self._send_json(HTTPStatus.UNPROCESSABLE_ENTITY, {"error": "invalid_hdoc", "errors": error.errors, "warnings": error.warnings})
-        except IdentityConflictError as error:
-            self._send_json(HTTPStatus.CONFLICT, {"error": "identity_conflict", "id": error.document_id, "existing": {key: error.existing.get(key) for key in ("id", "sha256", "received_at", "source")}})
-        except OSError as error:
+        except (OSError, RuntimeError) as error:
             self._send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": "storage_error", "message": str(error)})
 
 

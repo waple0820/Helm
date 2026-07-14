@@ -33,7 +33,7 @@ The original HTML is stored verbatim in `html`; its embedded HDOC manifest remai
 
 Helm deliberately keeps a catalog overlay separate from the immutable HTML source. A local title, type, tags, summary, source label, project workspace, or `catalogUpdatedAt` may therefore differ from the original HDOC manifest after the user organizes the library. `metadata.project` is a first-class optional catalog field; other overlay facts are preserved through `metadata.extensions`. None are written back into `html` during export or recovery.
 
-`metadata.extensions` is optional. It preserves JSON-only document fields that are not part of Helm's core record — including `sourceDocumentId`, `identityState`, `catalogUpdatedAt`, and copy provenance. Extension field names cannot replace core fields or use prototype-sensitive names.
+`metadata.extensions` is optional. It preserves JSON-only document fields that are not part of Helm's core record — including `sourceDocumentId`, `identityState`, `catalogUpdatedAt`, workflow state, Fork provenance, and the immutable Revision graph. Extension field names cannot replace core fields or use prototype-sensitive names. This keeps `HARC/1.0` backwards compatible while allowing a clean-library recovery to recreate Channel history.
 
 ## Safe import contract
 
@@ -45,7 +45,7 @@ await Promise.all(plan.acceptedDocuments.map(saveDocument));
 // Render plan.conflicts for an explicit user decision.
 ```
 
-Do not persist `acceptedDocuments` until the caller has shown the result. A future conflict-resolution UI may offer an explicit copy, replacement, or revision workflow, but `HARC/1.0` makes no implicit data-loss decision.
+Do not persist `acceptedDocuments` until the caller has shown the result. Helm restores Revision history for an accepted Artifact. Existing-ID records remain conflicts: `HARC/1.0` makes no implicit overwrite, merge, or head-advance decision.
 
 ## Browser helpers
 
