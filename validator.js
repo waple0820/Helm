@@ -260,6 +260,9 @@
       if (anchor.getAttribute('target') === '_blank' && !/\bnoopener\b/i.test(anchor.getAttribute('rel') || '')) {
         issue(issues, 'link-noopener', 'warning', 'Add rel="noopener" to target="_blank" links.', 'a[href]');
       }
+      if (isLikelyRelativeUrl(href)) {
+        issue(issues, 'link-resource-local', 'warning', `Replace the relative link \`${href}\` with an absolute URL or preserve the referenced content in this artifact; sibling files are not carried with a standalone HTML document.`, 'a[href]');
+      }
     });
 
     rootElement.querySelectorAll('img').forEach((image) => {
@@ -298,7 +301,7 @@
         if (isLikelyRelativeUrl(url)) {
           issue(issues, 'css-resource-local', 'warning', `Inline the CSS resource \`${url}\` or use a data URL so the artifact remains portable.`, 'style');
         } else if (isRemoteUrl(url)) {
-          issue(issues, 'css-resource-remote', 'info', `Remote CSS resource \`${url}\` is only safe as a progressive enhancement; keep the document usable without it.`, 'style');
+          issue(issues, 'css-resource-remote', 'warning', `Remote CSS resource \`${url}\` is only safe as a progressive enhancement; keep the document usable without it.`, 'style');
         }
       }
     });
@@ -308,7 +311,7 @@
       if (isLikelyRelativeUrl(src)) {
         issue(issues, 'media-resource-local', 'warning', `Inline the ${node.tagName.toLowerCase()} resource \`${src}\` or make it non-essential; relative files are not part of a standalone HTML artifact.`, node.tagName.toLowerCase());
       } else if (isRemoteUrl(src)) {
-        issue(issues, 'media-resource-remote', 'info', `Remote ${node.tagName.toLowerCase()} resource \`${src}\` should remain a progressive enhancement.`, node.tagName.toLowerCase());
+        issue(issues, 'media-resource-remote', 'warning', `Remote ${node.tagName.toLowerCase()} resource \`${src}\` should remain a progressive enhancement.`, node.tagName.toLowerCase());
       }
     });
 

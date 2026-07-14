@@ -65,6 +65,8 @@ Each visual module must make one real relationship easier to understand. Before 
 
 Use inline SVG or semantic HTML/CSS for diagrams and simple charts. They keep the artifact self-contained, printable, searchable, and legible at narrow widths. Do not require a runtime CDN, a canvas-only rendering, a remote image, or interaction to learn the core result.
 
+Keep evidence navigation portable as well as visual. Do not link to sibling files with relative paths such as `../stage2/report.html`: Helm retains one HTML evidence original, not the source directory tree. Use an absolute, durable source URL, or bring the relevant finding and provenance into the artifact. Embed essential visual resources rather than referencing relative image, font, media, or stylesheet files.
+
 ## Visual grammar library
 
 Use these patterns consistently rather than inventing a new decorative shape for every report:

@@ -1,0 +1,153 @@
+#!/usr/bin/env bash
+# Atomically deploy the committed Helm tree to a remote single-user host.
+set -euo pipefail
+
+remote_host=""
+remote_dir="~/apps/html-displayer"
+public_base_url=""
+port="4173"
+tmux_session="helm-html-archive"
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/deploy-remote --host USER@HOST --public-base-url URL [options]
+
+Options:
+  --remote-dir PATH       Remote application directory (default: ~/apps/html-displayer)
+  --port PORT             Share server port (default: 4173)
+  --tmux-session NAME     tmux session name (default: helm-html-archive)
+
+The deploy contains only the committed Git tree. Runtime shares remain in
+~/.helm-shares and are never copied or replaced.
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --host) remote_host="${2:-}"; shift 2 ;;
+    --remote-dir) remote_dir="${2:-}"; shift 2 ;;
+    --public-base-url) public_base_url="${2:-}"; shift 2 ;;
+    --port) port="${2:-}"; shift 2 ;;
+    --tmux-session) tmux_session="${2:-}"; shift 2 ;;
+    -h|--help) usage; exit 0 ;;
+    *) echo "Unknown option: $1" >&2; usage >&2; exit 2 ;;
+  esac
+done
+
+[[ -n "$remote_host" ]] || { echo "--host is required" >&2; exit 2; }
+[[ -n "$public_base_url" ]] || { echo "--public-base-url is required" >&2; exit 2; }
+[[ "$port" =~ ^[0-9]+$ ]] && (( port > 0 && port < 65536 )) || { echo "--port must be between 1 and 65535" >&2; exit 2; }
+[[ "$tmux_session" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "--tmux-session contains unsupported characters" >&2; exit 2; }
+
+repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_dir"
+git diff --quiet && git diff --cached --quiet || {
+  echo "Refusing to deploy uncommitted tracked changes. Commit and review first." >&2
+  exit 1
+}
+
+revision="$(git rev-parse --short=12 HEAD)"
+archive="$(mktemp "${TMPDIR:-/tmp}/helm-deploy.XXXXXX.tar")"
+remote_archive="/tmp/helm-deploy-${revision}-$$.tar"
+trap 'rm -f "$archive"' EXIT
+git archive --format=tar HEAD >"$archive"
+scp -q "$archive" "$remote_host:$remote_archive"
+
+quote_remote() { printf '%q' "$1"; }
+remote_command="bash -s -- $(quote_remote "$remote_dir") $(quote_remote "$remote_archive") $(quote_remote "$port") $(quote_remote "$tmux_session") $(quote_remote "$public_base_url") $(quote_remote "$revision")"
+
+ssh "$remote_host" "$remote_command" <<'REMOTE'
+set -euo pipefail
+remote_dir="$1"
+archive="$2"
+port="$3"
+session="$4"
+public_url="$5"
+revision="$6"
+
+remote_dir="${remote_dir/#\~/$HOME}"
+staging="${remote_dir}.next-${revision}"
+previous="${remote_dir}.previous"
+share_dir="$HOME/.helm-shares"
+
+cleanup() { rm -f "$archive"; }
+trap cleanup EXIT
+rm -rf "$staging"
+mkdir -p "$staging"
+tar -xf "$archive" -C "$staging"
+(
+  cd "$staging"
+  python3 -m unittest discover -s tests -p 'test_*.py'
+)
+
+start_server() {
+  local app_dir="$1"
+  local launch
+  printf -v launch 'cd %q && exec env HELM_PUBLIC_BASE_URL=%q HELM_SHARE_DIR=%q python3 helm_share_server.py --host 0.0.0.0 --port %q' \
+    "$app_dir" "$public_url" "$share_dir" "$port"
+  tmux kill-session -t "$session" 2>/dev/null || true
+  tmux new-session -d -s "$session" "$launch"
+}
+
+rollback_activation() {
+  # This function is called only after the previous application directory may
+  # have moved. Keep rollback best-effort even when the original activation
+  # failure occurred under `set -e`.
+  set +e
+  tmux kill-session -t "$session" 2>/dev/null
+  rm -rf "$remote_dir"
+  if [[ -e "$previous" || -L "$previous" ]]; then
+    mv "$previous" "$remote_dir"
+    start_server "$remote_dir"
+    rollback_status=$?
+  else
+    rollback_status=0
+  fi
+  set -e
+  return "$rollback_status"
+}
+
+rm -rf "$previous"
+if [[ -e "$remote_dir" || -L "$remote_dir" ]]; then
+  mv "$remote_dir" "$previous"
+fi
+if ! mv "$staging" "$remote_dir"; then
+  echo "Helm directory activation failed; rolling back." >&2
+  rollback_activation || echo "Rollback also failed; manual recovery is required at $remote_dir." >&2
+  exit 1
+fi
+if ! start_server "$remote_dir"; then
+  echo "Helm service start failed; rolling back." >&2
+  rollback_activation || echo "Rollback also failed; manual recovery is required at $remote_dir." >&2
+  exit 1
+fi
+
+healthy=false
+for _ in $(seq 1 40); do
+  if python3 - "$port" <<'PY'
+import json
+import sys
+from urllib.request import urlopen
+
+try:
+    with urlopen(f"http://127.0.0.1:{sys.argv[1]}/api/share/health", timeout=1) as response:
+        payload = json.load(response)
+    raise SystemExit(0 if payload.get("channel_api_version") == "HCHANNEL/1.0" else 1)
+except Exception:
+    raise SystemExit(1)
+PY
+  then
+    healthy=true
+    break
+  fi
+  sleep 0.25
+done
+
+if [[ "$healthy" != true ]]; then
+  echo "New Helm service failed its health check; rolling back." >&2
+  rollback_activation || echo "Rollback also failed; manual recovery is required at $remote_dir." >&2
+  exit 1
+fi
+
+echo "Helm ${revision} is healthy at ${public_url}."
+REMOTE

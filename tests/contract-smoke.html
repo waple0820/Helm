@@ -12,8 +12,17 @@
         return { path, validation: window.HelmValidator.validate(html) };
       }));
       const failed = results.filter(({ validation }) => !validation.valid);
-      document.body.dataset.status = failed.length ? 'failed' : 'passed';
-      document.body.textContent = failed.length ? JSON.stringify(failed) : 'passed';
+      const relativeSource = (await (await fetch('../templates/reference-note.html')).text())
+        .replace('</main>', '<p><a href="../stage2/report.html">Stage two report</a></p><img src="./chart.png" alt="Chart"></main>');
+      const relativeValidation = window.HelmValidator.validate(relativeSource);
+      const issueCodes = new Set(relativeValidation.issues.map(({ code }) => code));
+      const portabilityPassed = relativeValidation.score < 100
+        && issueCodes.has('link-resource-local')
+        && issueCodes.has('media-resource-local');
+      document.body.dataset.status = failed.length || !portabilityPassed ? 'failed' : 'passed';
+      document.body.textContent = failed.length || !portabilityPassed
+        ? JSON.stringify({ failed, relativeValidation })
+        : 'passed';
     })().catch((error) => {
       document.body.dataset.status = 'failed';
       document.body.textContent = String(error);

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import ipaddress
 import json
 import os
 import re
@@ -30,7 +31,7 @@ API_VERSION = "HBRIDGE/1.0"
 HDOC_VERSION = "HDOC/1.0"
 MAX_DOCUMENT_BYTES = 5 * 1024 * 1024
 DOCUMENT_TYPES = {"report", "brief", "reference", "dashboard", "note"}
-DEFAULT_CORS_ORIGINS = {"http://127.0.0.1:4173", "http://localhost:4173"}
+DEFAULT_CORS_ORIGINS: set[str] = set()
 ID_PATTERN = re.compile(r"^[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?$")
 
 
@@ -54,6 +55,7 @@ class HDOCParser(HTMLParser):
         self.unsafe_scripts = 0
         self.event_handlers: list[str] = []
         self.external_dependencies: list[str] = []
+        self.relative_dependencies: list[str] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         attributes = {name.lower(): value or "" for name, value in attrs}
@@ -72,8 +74,16 @@ class HDOCParser(HTMLParser):
         for name, value in attributes.items():
             if name.startswith("on"):
                 self.event_handlers.append(name)
-            if name in {"src", "href"} and re.match(r"^https?://", value, re.IGNORECASE):
-                self.external_dependencies.append(value)
+            if name not in {"src", "href"} or not value.strip():
+                continue
+            reference = value.strip()
+            if re.match(r"^(?:https?:)?//", reference, re.IGNORECASE):
+                # An ordinary absolute anchor is provenance/navigation, not a
+                # runtime dependency. Remote src and non-anchor href values are.
+                if name == "src" or tag != "a":
+                    self.external_dependencies.append(reference)
+            elif not re.match(r"^(?:#|data:|blob:|mailto:|tel:|[a-z][a-z0-9+.-]*:)", reference, re.IGNORECASE):
+                self.relative_dependencies.append(reference)
 
     def handle_data(self, data: str) -> None:
         if self._manifest_parts is not None:
@@ -177,6 +187,8 @@ def validate_hdoc(html: str) -> tuple[dict[str, Any], list[str]]:
             errors.append(f"{name} must exactly match the manifest.")
     if parser.external_dependencies:
         warnings.append("The artifact references remote resources; it should remain meaningful without them.")
+    if parser.relative_dependencies:
+        warnings.append("The artifact references relative files or links that will not travel with a standalone HTML document; use absolute links or embed essential resources.")
     if errors:
         raise ContractError(errors, warnings)
     return manifest, warnings
@@ -342,6 +354,34 @@ class BridgeCatalog:
             return {**record, "html": html}
 
 
+def is_allowed_browser_origin(origin: str, explicit_origins: set[str] | None = None) -> bool:
+    """Accept an explicitly configured origin or a syntactically exact loopback origin.
+
+    Helm's UI is commonly served on an ephemeral development port. Restricting
+    by loopback host preserves that workflow without reflecting arbitrary web
+    origins into this owner-local API.
+    """
+    if origin in (explicit_origins or set()):
+        return True
+    try:
+        parsed = urlparse(origin)
+        # Accessing port deliberately rejects malformed values such as :abc.
+        parsed.port
+    except ValueError:
+        return False
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return False
+    if parsed.username or parsed.password or parsed.path or parsed.params or parsed.query or parsed.fragment:
+        return False
+    hostname = (parsed.hostname or "").rstrip(".").lower()
+    if hostname == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(hostname).is_loopback
+    except ValueError:
+        return False
+
+
 class BridgeRequestHandler(BaseHTTPRequestHandler):
     server: "BridgeHTTPServer"
     protocol_version = "HTTP/1.1"
@@ -352,7 +392,7 @@ class BridgeRequestHandler(BaseHTTPRequestHandler):
 
     def _origin_allowed(self) -> str | None:
         origin = self.headers.get("Origin")
-        return origin if origin and origin in self.server.cors_origins else None
+        return origin if origin and is_allowed_browser_origin(origin, self.server.cors_origins) else None
 
     def _send_json(self, status: HTTPStatus, payload: dict[str, Any]) -> None:
         encoded = json.dumps(payload, ensure_ascii=False).encode("utf-8")

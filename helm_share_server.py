@@ -25,6 +25,7 @@ CHANNEL_API_VERSION = "HCHANNEL/1.0"
 MAX_REQUEST_BYTES = MAX_DOCUMENT_BYTES + 64 * 1024
 ARTIFACT_ID_PATTERN = re.compile(r"^[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?$")
 REVISION_FILENAME_PATTERN = re.compile(r"^([0-9a-f]{64})\.html$")
+LEGACY_SHARE_FILENAME_PATTERN = re.compile(r"^.+--([0-9a-f]{12})\.html$")
 
 
 def utc_now() -> str:
@@ -120,6 +121,32 @@ class ShareStore:
         if candidate.parent != self.root or not candidate.is_file():
             return None
         return candidate
+
+    def revoke_legacy(self, public_path: str, expected_sha256: str) -> dict[str, Any]:
+        """Remove one exact legacy flat share without accepting arbitrary root files."""
+        parsed = urlparse(public_path)
+        if parsed.query or parsed.fragment or not parsed.path.startswith("/share/"):
+            raise ChannelNotFoundError(public_path)
+        filename = unquote(parsed.path.removeprefix("/share/"))
+        match = LEGACY_SHARE_FILENAME_PATTERN.fullmatch(filename)
+        if not match or not re.fullmatch(r"[0-9a-f]{64}", expected_sha256 or ""):
+            raise ChannelNotFoundError(public_path)
+        if match.group(1) != expected_sha256[:12]:
+            raise ChannelConflictError(filename, None)
+        with self.lock:
+            candidate = self.resolve(filename)
+            if not candidate:
+                raise ChannelNotFoundError(public_path)
+            actual_sha256 = hashlib.sha256(candidate.read_bytes()).hexdigest()
+            if actual_sha256 != expected_sha256:
+                raise ChannelConflictError(filename, actual_sha256)
+            candidate.unlink()
+        return {
+            "state": "revoked",
+            "path": f"/share/{quote(filename)}",
+            "sha256": expected_sha256,
+            "revoked_at": utc_now(),
+        }
 
     def publish_channel(self, html_bytes: bytes, base_revision_sha256: str | None = None) -> dict[str, Any]:
         manifest, warnings = self._validate_source(html_bytes)
@@ -388,9 +415,10 @@ class ShareRequestHandler(SimpleHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802
         path = urlparse(self.path).path
         legacy = path == "/api/share"
+        legacy_revoke = path == "/api/share/revoke"
         channel_publish = path == "/api/channels/publish"
         revoke_match = re.fullmatch(r"/api/channels/artifacts/([^/]+)/revoke", path)
-        if not legacy and not channel_publish and not revoke_match:
+        if not legacy and not legacy_revoke and not channel_publish and not revoke_match:
             self._send_json(HTTPStatus.NOT_FOUND, {"error": "not_found"})
             return
         if not self._owner_request():
@@ -399,6 +427,14 @@ class ShareRequestHandler(SimpleHTTPRequestHandler):
         if payload is None:
             return
         try:
+            if legacy_revoke:
+                public_path = payload.get("path") if isinstance(payload, dict) else None
+                expected_sha256 = payload.get("sha256") if isinstance(payload, dict) else None
+                if not isinstance(public_path, str) or not isinstance(expected_sha256, str):
+                    raise ContractError(["Request JSON must contain the legacy share path and SHA-256 digest."])
+                result = self.server.store.revoke_legacy(public_path, expected_sha256)
+                self._send_json(HTTPStatus.OK, {**result, "ok": True})
+                return
             if revoke_match:
                 base = payload.get("base_revision_sha256") if isinstance(payload, dict) else None
                 result = self.server.store.revoke_channel(unquote(revoke_match.group(1)), base)

@@ -14,7 +14,7 @@ Any project, agent, or person that generates an HTML artifact for the Helm libra
 4. Use semantic HTML: one `h1`, ordered headings, real lists and tables, descriptive links, and no text encoded only in images.
 5. State sources, data dates, assumptions, and confidence wherever factual claims would otherwise become untraceable.
 6. Follow [`REPORT-DESIGN-STANDARD.md`](REPORT-DESIGN-STANDARD.md): use a calm, evidence-forward, answer-first report system with generous whitespace, useful hierarchy, quiet neutral surfaces, restrained accent color, and data clarity over dashboard decoration. When a comparison, sequence, hierarchy, magnitude, change, composition, or uncertainty is material, include one or more meaningful visual evidence modules selected from the visual grammar. A reader must be able to find the purpose or short answer, the supporting evidence, and the resulting action or boundary without relying on interaction.
-7. Do not depend on a host app for fonts, scripts, navigation, APIs, authentication, or core content. Remote images and fonts may be used only as progressive enhancement; a document must still be meaningful without them.
+7. Do not depend on a host app for fonts, scripts, navigation, APIs, authentication, or core content. Remote images and fonts may be used only as progressive enhancement; a document must still be meaningful without them. Relative file references such as `../stage2/report.html` or `./chart.png` are non-portable because sibling files do not travel with one standalone artifact. Embed essential resources and use absolute URLs for external destinations.
 8. Treat user-supplied or third-party HTML as untrusted. Helm previews it in a sandbox, and authors should avoid scripts unless there is a clear, documented reason.
 
 ## Report presentation standard
@@ -80,6 +80,13 @@ These duplicate the core manifest fields so a simple file indexer can inspect th
 <meta name="helm:summary" content="One decisive sentence.">
 <meta name="helm:tags" content="research, active">
 ```
+
+## Links and embedded resources
+
+- Fragment links such as `#evidence`, absolute web/source URLs, and purpose-specific schemes such as `mailto:` and `tel:` are valid navigation targets.
+- A relative `href` points into the author's original folder layout, which Helm does not import. Replace it with an absolute URL, or preserve the referenced evidence inside the artifact.
+- Essential images, audio, video, fonts, and CSS must be embedded, normally with inline markup/CSS or a `data:` URL. A relative `src` or CSS `url(...)` violates the standalone portability expectation and is reported by validation.
+- A remote media or CSS resource is a progressive enhancement, not part of the retained evidence original. Helm reports it as a portability warning, so a document that relies on it does not receive a 100-point validation score.
 
 ## Reference skeleton
 
