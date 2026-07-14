@@ -1,17 +1,21 @@
-# Helm intranet sharing
+# Helm Channels and intranet sharing
 
-Helm keeps the personal library in browser storage. Sharing does not expose that library. It publishes one explicitly selected, validated HDOC document as an immutable read-only file.
+Helm keeps the personal browser library private. Publishing copies only an explicitly selected, validated HDOC document into the share service. Network visitors can read published pages but cannot browse the library or change a Channel.
 
-## User flow
+The browser publishes only when the logical Artifact ID equals the embedded HDOC manifest ID. Catalog copies and newly created Forks therefore cannot accidentally advance the source Artifact's Channel; a Fork first needs an explicitly authored HDOC Revision with its own matching identity.
 
-1. Select an artifact that passes `HDOC/1.0` validation.
-2. Choose **Publish intranet link** in the inspector or **Share link** in the reader.
-3. Helm validates and stores the exact HTML bytes, then copies the returned URL.
-4. Anyone who can reach the configured intranet host can open that URL without access to the rest of the browser library.
+## Two kinds of links
 
-The filename contains a SHA-256 digest prefix. Publishing the same bytes again is idempotent and returns the same address. Changed bytes produce a new address; an existing share is never overwritten or silently redirected.
+Helm Channels separates a logical Artifact from its immutable Revisions:
 
-## Service boundary
+- `GET /a/<artifact-id>` is the stable Artifact address. It serves the current published Revision with `Cache-Control: no-store`, so an update appears at the same address.
+- `GET /r/<full-sha256>.html` is one exact, immutable Revision. It is content-addressed and receives a one-year immutable cache policy.
+
+Every update appends a new byte-for-byte Revision and atomically advances the stable Artifact pointer. Existing Revision files are never overwritten. The service records the pointer and publication state in `channels.json`, while exact sources live under `revisions/` in the configured share directory.
+
+Revoking a Channel makes its stable `/a/` address return `410 Gone`. It does not delete immutable Revision addresses that have already been distributed. This is a publication boundary, not a promise that previously shared bytes can be recalled.
+
+## Owner workflow and API
 
 Run the static app and share API together:
 
@@ -22,9 +26,53 @@ python3 helm_share_server.py \
   --public-base-url http://INTRANET_HOST:4173
 ```
 
-- `GET /share/<document-id>--<digest>.html` is available to the intranet and returns a sandboxed, read-only document.
-- `POST /api/share` is accepted only when the connection reaches the server through loopback. The owner can use an SSH local forward; direct intranet visitors cannot publish.
-- Shared HTML lives outside the site root by default in `~/.helm-shares` and is not part of IndexedDB, the Agent inbox, or a Git checkout.
-- Restrict the listening port to the intended private network at the host firewall. Never publish secrets, credentials, private source material, or machine-specific access data.
+Channel mutations are accepted only through an owner loopback connection. Browser requests must use `Content-Type: application/json` and an allowed local Origin; command-line clients may omit Origin. When the service runs remotely, use an SSH local forward for management.
 
-This is deliberate publication, not synchronization: deleting a browser catalog entry does not delete an already shared immutable URL.
+Create a Channel:
+
+```http
+POST /api/channels/publish
+Content-Type: application/json
+
+{"html":"<!doctype html>..."}
+```
+
+The response contains both `stable_url` and `revision_url`. To publish changed bytes, send the Revision currently observed by the editor:
+
+```http
+POST /api/channels/publish
+Content-Type: application/json
+
+{"html":"<!doctype html>...", "base_revision_sha256":"<current full sha256>"}
+```
+
+If another writer has advanced the Artifact, the service returns `409 revision_conflict` and the current digest instead of silently replacing it. Exact retries of the current published bytes are idempotent.
+
+Revoke the stable address with the same compare-and-swap boundary:
+
+```http
+POST /api/channels/artifacts/<artifact-id>/revoke
+Content-Type: application/json
+
+{"base_revision_sha256":"<current full sha256>"}
+```
+
+Owner-only `GET /api/channels` and `GET /api/channels/artifacts/<artifact-id>` expose publication records for management UI. They are not an intranet directory.
+
+## Legacy one-shot shares
+
+Existing one-shot sharing remains fully compatible:
+
+- `POST /api/share` publishes one validated document through loopback.
+- `GET /share/<document-id>--<digest-prefix>.html` remains an immutable public address.
+- Existing flat share files are not migrated, renamed, redirected, or deleted.
+
+The legacy endpoint never advances a Channel because it has no base Revision for conflict detection. Publish through `/api/channels/publish` when one stable address should evolve.
+
+## Security boundary
+
+- Public HTML receives a sandboxed CSP, `no-referrer`, and `nosniff` headers.
+- The default share directory is `~/.helm-shares`; Channel source files and catalog metadata are owner-only. Legacy flat files retain their original compatibility permissions.
+- Restrict the listening port to the intended private network at the host firewall.
+- Never publish secrets, credentials, private source material, or machine-specific access data.
+- Deleting a browser catalog entry does not delete an already published URL.

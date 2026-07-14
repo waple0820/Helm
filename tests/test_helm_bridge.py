@@ -7,7 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from helm_bridge import BridgeCatalog, ContractError, IdentityConflictError, validate_hdoc
+from helm_bridge import BridgeCatalog, ContractError, validate_hdoc
 
 
 def document(document_id="agent-report", title="Agent report", body="Evidence", project=None):
@@ -23,7 +23,7 @@ class HelmBridgeTests(unittest.TestCase):
         with self.assertRaises(ContractError):
             validate_hdoc(document().replace("</body>", "<script>alert(1)</script></body>"))
 
-    def test_idempotency_conflict_and_exact_original(self):
+    def test_idempotency_revision_history_and_exact_originals(self):
         source = document(body="Exact original text.").encode("utf-8")
         with tempfile.TemporaryDirectory() as directory:
             catalog = BridgeCatalog(Path(directory))
@@ -37,8 +37,13 @@ class HelmBridgeTests(unittest.TestCase):
             self.assertEqual(repeated, "idempotent")
             self.assertEqual(record["sha256"], same_record["sha256"])
             self.assertEqual(catalog.read_document("agent-report")["html"].encode("utf-8"), source)
-            with self.assertRaises(IdentityConflictError):
-                catalog.ingest(document(body="Different source.").encode("utf-8"), "test-agent")
+            revised_source = document(body="Different source.").encode("utf-8")
+            revised, revised_record = catalog.ingest(revised_source, "test-agent")
+            self.assertEqual(revised, "revision")
+            self.assertEqual(revised_record["revision_number"], 2)
+            revisions = catalog.list_documents()
+            self.assertEqual(len(revisions), 2)
+            self.assertEqual({entry["html"].encode("utf-8") for entry in revisions}, {source, revised_source})
 
     def test_project_can_be_declared_or_attached_by_the_submitter(self):
         declared = '{"id":"texas-gto-lab","name":"Texas GTO Lab"}'

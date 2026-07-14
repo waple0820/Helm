@@ -18,6 +18,7 @@ Helm keeps finished HTML reports, briefs, dashboards, and research as durable pr
 - **Originals remain evidence.** Helm indexes, exports, backs up, and shares the exact HTML bytes; it never silently rewrites the source artifact.
 - **Agents have a contract.** `HDOC/1.0`, report templates, and the checked-in agent guide make artifacts portable across projects and agents.
 - **The owner keeps control.** Agent output arrives in a reviewable inbox. Browser storage, imports, and intranet publication remain deliberate human actions.
+- **Artifacts have history.** Immutable revisions, Draft / Reviewed / Published state, visual comparison, Fork lineage, and a stable Channel address keep change legible without rewriting evidence.
 
 ## Start in one minute
 
@@ -64,7 +65,7 @@ The final artifact appears in **Agent inbox** for review and explicit import. Re
 
 | Path | Purpose |
 | --- | --- |
-| [`index.html`](index.html), [`app.js`](app.js), [`styles.css`](styles.css) | Static browser library, local catalog, safe reader, and interface. |
+| [`index.html`](index.html), [`app.js`](app.js), [`channel-store.js`](channel-store.js), [`styles.css`](styles.css) | Static browser library, Artifact / Revision store, safe reader, and interface. |
 | [`validator.js`](validator.js) | Browser-side `HDOC/1.0` inspection and portability warnings. |
 | [`helm_bridge.py`](helm_bridge.py) | Loopback-only agent ingress and immutable inbox records. |
 | [`helm_share_server.py`](helm_share_server.py) | Static app plus owner-only publication of immutable read-only share links. |
@@ -99,6 +100,7 @@ Helm is intentionally a single-person, local-first archive. It does not provide 
 - [`docs/AGENT-BRIDGE.md`](docs/AGENT-BRIDGE.md) — Bridge API, security model, and conflict semantics.
 - [`docs/LOCAL-ARCHIVE-LAYOUT.md`](docs/LOCAL-ARCHIVE-LAYOUT.md) — portable `HARC/1.0` archive format.
 - [`docs/INTRANET-SHARING.md`](docs/INTRANET-SHARING.md) — owner-controlled immutable sharing model.
+- [`docs/CHANNELS.md`](docs/CHANNELS.md) — Artifact, Revision, publication, comparison, and Fork semantics.
 
 ## Contributing and security
 

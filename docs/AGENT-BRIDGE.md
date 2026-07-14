@@ -1,6 +1,6 @@
 # Helm Bridge — agent ingress
 
-`HDOC/1.0` describes the portable file. Helm Bridge is the optional local ingress service that lets an AI agent hand a completed file to a person's Helm library without giving the agent access to that browser library.
+`HDOC/1.0` describes the portable file. Helm Bridge is the optional local ingress service that lets an AI agent hand a completed Artifact revision to a person's Helm library without giving the agent access to that browser library.
 
 ## Boundary
 
@@ -34,7 +34,7 @@ The read-only endpoints require no token:
 
 - Rejects unsafe or invalid submissions: executable scripts, inline handlers, missing HDOC metadata, invalid timestamps, duplicate roots or headings, and files larger than 5 MB.
 - Preserves the accepted UTF-8 bytes exactly; it does not format, repair, or mutate submitted HTML.
-- Treats the manifest ID as an immutable stable identity. Resending the exact bytes is idempotent. Sending different bytes with an existing ID returns `409 Conflict`, never an overwrite.
+- Treats the manifest ID as the logical Artifact identity. Resending exact bytes is idempotent; different bytes under that ID are appended as another immutable Revision. The Bridge never overwrites an earlier source or advances the browser's current Revision by itself.
 - Warns about remote resources, but does not rewrite them. The browser reader keeps its separate no-network sandbox.
 
 ## Agent integration
@@ -55,7 +55,7 @@ HELM_BRIDGE_TOKEN=owner-provided-secret
 HELM_AGENT_NAME=research-agent
 ```
 
-The supplied client treats `409` as an identity conflict and `422` as a contract failure. It must not solve either condition by silently changing the old document’s ID or overwriting it. Generate a genuinely new artifact when the content needs a new stable identity.
+The supplied client treats `422` as a contract failure. A revised version of the same Artifact keeps its manifest ID; a different document or intentional fork receives a new one. No client may overwrite an earlier Revision or silently advance the owner's current version.
 
 ## Remote agents
 

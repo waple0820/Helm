@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Helm Channels store smoke test</title>
+  <style>body{font:15px/1.5 system-ui;margin:2rem;max-width:70rem}pre{white-space:pre-wrap}.pass{color:#18794e}.fail{color:#c9372c}</style>
+</head>
+<body>
+  <h1>Helm Channels store smoke test</h1>
+  <pre id="results">Running…</pre>
+  <script src="../channel-store.js"></script>
+  <script>
+    const output = document.querySelector('#results');
+    const lines = [];
+    const assert = (condition, message) => { if (!condition) throw new Error(message); lines.push(`PASS ${message}`); };
+    const request = (value) => new Promise((resolve, reject) => { value.onsuccess = () => resolve(value.result); value.onerror = () => reject(value.error); });
+    const complete = (tx) => new Promise((resolve, reject) => { tx.oncomplete = resolve; tx.onabort = () => reject(tx.error); tx.onerror = () => {}; });
+
+    async function createLegacyDatabase(name, document) {
+      await request(indexedDB.deleteDatabase(name));
+      const open = indexedDB.open(name, 3);
+      open.onupgradeneeded = () => {
+        open.result.createObjectStore('documents', { keyPath: 'id' });
+        open.result.createObjectStore('settings', { keyPath: 'key' });
+      };
+      const db = await request(open);
+      const tx = db.transaction('documents', 'readwrite');
+      tx.objectStore('documents').add(document);
+      await complete(tx);
+      db.close();
+    }
+
+    (async () => {
+      const dbName = `helm-channels-smoke-${Date.now()}`;
+      const originalHtml = '<!doctype html><html><title>Original</title><body>immutable original</body></html>';
+      const legacy = {
+        id: 'artifact-one', title: 'Original title', type: 'report', tags: ['evidence'],
+        summary: 'Legacy document', source: 'smoke', project: { id: 'helm', name: 'Helm' },
+        createdAt: '2026-07-13T01:00:00.000Z', updatedAt: '2026-07-13T02:00:00.000Z',
+        html: originalHtml, contentText: 'immutable original', validation: { valid: true },
+        share: { url: '/share/original.html', sha256: 'legacy-share' }
+      };
+      await createLegacyDatabase(dbName, legacy);
+      const store = HelmChannelStore.create({ dbName });
+      await store.open();
+      await store.setSetting('smokeSetting', { enabled: true });
+      assert((await store.getSetting('smokeSetting')).enabled === true, 'repository owns settings access after the v4 upgrade');
+
+      let artifacts = await store.listArtifacts({ includeArchived: true });
+      assert(artifacts.length === 1, 'legacy document migrates once');
+      assert(artifacts[0].status === 'published', 'legacy share becomes published status');
+      let revisions = await store.listRevisions('artifact-one');
+      assert(revisions.length === 1 && revisions[0].html === originalHtml, 'migration preserves original HTML bytes');
+      assert(artifacts[0].publishedRevisionId === revisions[0].id, 'published revision is explicit');
+
+      await store.migrateLegacyDocuments();
+      revisions = await store.listRevisions('artifact-one');
+      assert(revisions.length === 1, 'legacy migration is idempotent');
+
+      const retry = await store.createOrRevise(legacy);
+      assert(retry.idempotent && (await store.listRevisions('artifact-one')).length === 1, 'same HTML is an idempotent retry');
+
+      const secondHtml = '<!doctype html><html><title>Second</title><body>new revision</body></html>';
+      const second = await store.createOrRevise({ ...legacy, html: secondHtml, updatedAt: '2026-07-14T02:00:00.000Z' }, { expectedCurrentRevisionId: revisions[0].id });
+      assert(second.revised && second.revision.parent.revisionId === revisions[0].id, 'new HTML appends a parent-linked revision');
+      revisions = await store.listRevisions('artifact-one');
+      assert(revisions.length === 2 && revisions[0].html === originalHtml, 'revision append never overwrites the original');
+
+      const updated = await store.updateCatalog('artifact-one', { title: 'Catalog title', tags: ['organized'] });
+      assert(updated.title === 'Catalog title' && updated.html === secondHtml, 'catalog update changes only the logical artifact');
+      revisions = await store.listRevisions('artifact-one');
+      assert(revisions.length === 2 && revisions[0].html === originalHtml, 'catalog update creates no revision');
+
+      let conflict = false;
+      try { await store.createOrRevise({ ...legacy, html: '<html>conflict</html>' }, { expectedCurrentRevisionId: revisions[0].id }); }
+      catch (error) { conflict = error.code === 'head-conflict'; }
+      assert(conflict, 'stale base revision cannot move the head');
+
+      const published = await store.setStatus('artifact-one', 'published', { revisionId: revisions[0].id });
+      assert(published.publishedRevisionId === revisions[0].id && published.revisionId === second.revision.id, 'published revision may remain behind the current head');
+
+      const share = { stableUrl: '/a/artifact-one', revisionUrl: '/r/revision-one.html', sha256: revisions[0].contentHash, publishedAt: '2026-07-14T03:00:00.000Z' };
+      await store.setRevisionShare('artifact-one', revisions[0].id, share);
+      let sharedRevision = await store.getRevision('artifact-one', revisions[0].id);
+      assert(sharedRevision.share.stableUrl === share.stableUrl && sharedRevision.html === originalHtml, 'share metadata belongs to one revision without changing its HTML');
+      assert((await store.getRevision('artifact-one', second.revision.id)).share === null, 'share metadata does not leak to another revision');
+      await store.setCurrentRevision('artifact-one', second.revision.id);
+      await store.revokePublication('artifact-one', revisions[0].id, { ...share, stableUrl: null, revokedAt: '2026-07-14T04:00:00.000Z' });
+      sharedRevision = await store.getRevision('artifact-one', revisions[0].id);
+      assert(sharedRevision.share.stableUrl === null && sharedRevision.share.revisionUrl === share.revisionUrl && sharedRevision.contentHash === revisions[0].contentHash && (await store.getArtifact('artifact-one')).status === 'draft', 'share revoke is atomic, preserves the immutable revision address, and does not review a newer draft');
+      await store.setStatus('artifact-one', 'published', { revisionId: revisions[0].id });
+
+      const historical = await store.setCurrentRevision('artifact-one', revisions[0].id);
+      assert(historical.revisionId === revisions[0].id && historical.status === 'published', 'head can move to the published revision');
+      const restoredHead = await store.setCurrentRevision('artifact-one', second.revision.id);
+      assert(restoredHead.revisionId === second.revision.id && restoredHead.status === 'draft', 'moving head away from published revision returns status to draft');
+
+      const fork = await store.fork('artifact-one', { id: 'artifact-fork', title: 'Forked artifact' }, { revisionId: revisions[0].id });
+      assert(fork.artifact.forkedFrom.artifactId === 'artifact-one', 'fork records cross-artifact provenance');
+      assert(fork.revision.parent.revisionId === revisions[0].id && fork.revision.html === originalHtml, 'fork genesis points to and preserves the source revision');
+
+      await store.deleteArtifact('artifact-fork');
+      assert((await store.getArtifact('artifact-fork')).status === 'archived', 'delete defaults to reversible archive');
+      assert((await store.listArtifacts()).every((item) => item.id !== 'artifact-fork'), 'archived artifacts are hidden by default');
+      await store.deleteArtifact('artifact-fork', { hard: true });
+      assert(await store.getArtifact('artifact-fork') === undefined, 'explicit hard delete removes the artifact');
+      assert((await store.listRevisions('artifact-fork')).length === 0, 'explicit hard delete removes owned revisions');
+
+      await store.close();
+      await request(indexedDB.deleteDatabase(dbName));
+      output.className = 'pass';
+      output.textContent = lines.join('\n');
+      document.title = 'PASS — Helm Channels store';
+    })().catch((error) => {
+      console.error(error);
+      output.className = 'fail';
+      output.textContent = `${lines.join('\n')}\nFAIL ${error.stack || error}`;
+      document.title = 'FAIL — Helm Channels store';
+    });
+  </script>
+</body>
+</html>

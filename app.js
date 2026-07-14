@@ -1,7 +1,3 @@
-const DB_NAME = 'helm-html-archive';
-const DB_VERSION = 3;
-const STORE = 'documents';
-const SETTINGS = 'settings';
 const SCHEMA = 'HDOC/1.0';
 const DOCUMENT_TYPES = new Set(['report', 'brief', 'reference', 'dashboard', 'note']);
 const PROJECT_ID_PATTERN = /^[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?$/;
@@ -9,7 +5,8 @@ const UNASSIGNED_PROJECT = Object.freeze({ id: 'unassigned', name: 'Needs projec
 const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
 const MAX_SEARCH_TEXT = 250000;
 const AGENT_BRIDGE_URL = 'http://127.0.0.1:4175';
-const SHARE_API_URL = '/api/share';
+const CHANNEL_API_URL = '/api/channels';
+const channelRepository = globalThis.HelmChannelStore?.defaultRepository;
 
 const templates = [
   { id: 'research-report', title: 'Research dossier', type: 'report', tags: ['research', 'evidence'], summary: 'Question → answer → evidence → recommendation.', accent: '#e7e6df' },
@@ -38,6 +35,7 @@ let appearanceMode = 'system';
 let readerArtifactId = null;
 let readerLoadToken = 0;
 let readerSlowTimer = null;
+const lineageSources = new Map();
 
 const APPEARANCE_MODES = new Set(['light', 'dark', 'system']);
 
@@ -92,62 +90,48 @@ function knownProjects() {
   });
 }
 
-function openDatabase() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE, { keyPath: 'id' });
-      if (!db.objectStoreNames.contains(SETTINGS)) db.createObjectStore(SETTINGS, { keyPath: 'key' });
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
+async function getAll() {
+  if (!channelRepository) throw new Error('Helm Channels repository is unavailable.');
+  const records = await channelRepository.listDocuments();
+  return Promise.all(records.filter(Boolean).map(async (record) => ({ ...record, revisions: await channelRepository.listRevisions(record.id) })));
 }
 
-async function getAll() {
-  const db = await openDatabase();
-  return new Promise((resolve, reject) => {
-    const request = db.transaction(STORE, 'readonly').objectStore(STORE).getAll();
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
+async function loadLineageSource(id, seen = new Set()) {
+  if (!id || seen.has(id) || documents.some((artifact) => artifact.id === id) || lineageSources.has(id)) return;
+  seen.add(id);
+  const document = await channelRepository.getDocument(id);
+  if (!document) return;
+  const source = { ...document, revisions: await channelRepository.listRevisions(id) };
+  lineageSources.set(id, source);
+  if (source.forkedFrom) await loadLineageSource(source.forkedFrom.artifactId, seen);
+}
+
+async function loadRequiredLineageSources() {
+  for (const artifact of documents) {
+    if (artifact.forkedFrom) await loadLineageSource(artifact.forkedFrom.artifactId);
+  }
 }
 
 async function saveDocument(artifact) {
-  const db = await openDatabase();
-  return new Promise((resolve, reject) => {
-    const request = db.transaction(STORE, 'readwrite').objectStore(STORE).put(artifact);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
+  const existing = await channelRepository.getArtifact(artifact.id);
+  const result = await channelRepository.createOrRevise(artifact, {
+    artifactId: artifact.id,
+    expectedCurrentRevisionId: existing?.currentRevisionId,
+    updateCatalog: Boolean(existing)
   });
+  return { ...result.document, revisions: await channelRepository.listRevisions(artifact.id) };
 }
 
-async function removeDocument(id) {
-  const db = await openDatabase();
-  return new Promise((resolve, reject) => {
-    const request = db.transaction(STORE, 'readwrite').objectStore(STORE).delete(id);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
-  });
+async function removeDocument(id, { hard = true } = {}) {
+  return channelRepository.deleteArtifact(id, { hard });
 }
 
 async function getSetting(key) {
-  const db = await openDatabase();
-  return new Promise((resolve, reject) => {
-    const request = db.transaction(SETTINGS, 'readonly').objectStore(SETTINGS).get(key);
-    request.onsuccess = () => resolve(request.result?.value);
-    request.onerror = () => reject(request.error);
-  });
+  return channelRepository.getSetting(key);
 }
 
 async function setSetting(key, value) {
-  const db = await openDatabase();
-  return new Promise((resolve, reject) => {
-    const request = db.transaction(SETTINGS, 'readwrite').objectStore(SETTINGS).put({ key, value });
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
-  });
+  return channelRepository.setSetting(key, value);
 }
 
 function setAppearance(mode, persist = false) {
@@ -272,18 +256,18 @@ function enrichArtifact(record, options = {}) {
 
 async function initialise() {
   try {
+    if (!channelRepository) throw new Error('Helm Channels repository is unavailable.');
+    await channelRepository.open();
     setAppearance(await getSetting('appearanceMode'));
     const stored = await getAll();
     const initialized = await getSetting('libraryInitialized');
     if (!initialized && !stored.length) {
       const seeded = seedDocuments.map((artifact) => ({ ...artifact, html: seedHtml(artifact) }));
-      documents = seeded.map((artifact) => enrichArtifact(artifact, { takenIds: new Set() }));
-      await Promise.all(documents.map(saveDocument));
+      documents = await Promise.all(seeded.map((artifact) => saveDocument(enrichArtifact(artifact, { takenIds: new Set() }))));
     } else {
-      const takenIds = new Set();
-      documents = stored.map((artifact) => enrichArtifact(artifact.html ? artifact : { ...artifact, html: seedHtml(artifact) }, { takenIds, preserveId: true }));
-      await Promise.all(documents.map(saveDocument));
+      documents = stored;
     }
+    await loadRequiredLineageSources();
     await setSetting('libraryInitialized', true);
     archiveFolderHandle = await getSetting('archiveFolderHandle');
     selectedId = documents[0]?.id || null;
@@ -361,7 +345,12 @@ function renderLibrary() {
   $('#clearLibraryFilters').hidden = !hasActiveLens;
   $('#contractReadyCount').textContent = String(readyCount).padStart(2, '0');
   $('#librarySourceCount').textContent = String(projectCount).padStart(2, '0');
-  $('#documentGrid').innerHTML = filtered.map((artifact, index) => { const project = projectFor(artifact); return `<article class="document-card ${artifact.id === selectedId ? 'selected' : ''}" data-id="${esc(artifact.id)}" data-type="${esc(artifact.type)}" tabindex="0"><div class="card-top"><span class="type-pill ${artifact.id === 'document-contract' ? 'contract-pill' : ''}">${esc(artifact.type.toUpperCase())}</span><button class="card-action" type="button" data-open="${esc(artifact.id)}" aria-label="Open ${esc(artifact.title)}">↗</button></div><div class="card-stage" aria-hidden="true"><span class="card-stage-kicker">${esc(artifact.type)} / ${String(index + 1).padStart(2, '0')}</span><span class="card-stage-mark">${artifact.validation?.valid ? '✓' : '·'}</span><div class="card-stage-lines"><i></i><i></i><i></i></div></div><p class="card-project">PROJECT / ${esc(project.name)}</p><h2>${esc(artifact.title)}</h2><p class="summary">${esc(artifact.summary || 'No summary provided.')}</p><div class="card-bottom"><div class="mini-tags">${artifact.tags.slice(0, 3).map((tag) => `<span class="mini-tag">${esc(tag)}</span>`).join('')}</div><span class="card-date">${dateLabel(artifact.catalogUpdatedAt || artifact.updatedAt)}</span></div></article>`; }).join('');
+  $('#documentGrid').innerHTML = filtered.map((artifact, index) => {
+    const project = projectFor(artifact);
+    const state = workflowState(artifact);
+    const published = stableShare(artifact) ? `Published v${revisionNumber(artifact, artifact.publishedRevisionId)}` : artifact.publishedRevisionId ? `Last published v${revisionNumber(artifact, artifact.publishedRevisionId)} · revoked` : 'Not published';
+    return `<article class="document-card ${artifact.id === selectedId ? 'selected' : ''}" data-id="${esc(artifact.id)}" data-type="${esc(artifact.type)}" tabindex="0"><div class="card-top"><span><span class="type-pill ${artifact.id === 'document-contract' ? 'contract-pill' : ''}">${esc(artifact.type.toUpperCase())}</span> <span class="workflow-badge" data-status="${state}">${state.toUpperCase()}</span></span><button class="card-action" type="button" data-open="${esc(artifact.id)}" aria-label="Open ${esc(artifact.title)}">↗</button></div><div class="card-stage" aria-hidden="true"><span class="card-stage-kicker">REV ${String(revisionNumber(artifact)).padStart(2, '0')} / ${esc(artifact.type)}</span><span class="card-stage-mark">${artifact.validation?.valid ? '✓' : '·'}</span><div class="card-stage-lines"><i></i><i></i><i></i></div></div><p class="card-project">PROJECT / ${esc(project.name)}</p><h2>${esc(artifact.title)}</h2><p class="summary">${esc(artifact.summary || 'No summary provided.')}</p><div class="card-bottom"><div class="mini-tags">${artifact.tags.slice(0, 2).map((tag) => `<span class="mini-tag">${esc(tag)}</span>`).join('')}<span class="mini-tag">${esc(published)}</span></div><span class="card-date">${dateLabel(artifact.catalogUpdatedAt || artifact.updatedAt)}</span></div></article>`;
+  }).join('');
   $('#emptyState').hidden = Boolean(filtered.length);
   $$('.document-card').forEach((card) => {
     card.addEventListener('click', (event) => { if (!event.target.closest('[data-open]')) selectDocument(card.dataset.id); });
@@ -380,6 +369,46 @@ function renderTemplates() {
   $$('[data-template]').forEach((button) => button.addEventListener('click', () => openCreateDialog(templates.find((template) => template.id === button.dataset.template))));
 }
 
+function revisionsFor(artifact) {
+  return [...(artifact?.revisions || [])].sort((left, right) => new Date(left.createdAt) - new Date(right.createdAt));
+}
+
+function revisionNumber(artifact, revisionId = artifact?.currentRevisionId) {
+  const index = revisionsFor(artifact).findIndex((revision) => revision.id === revisionId);
+  return index < 0 ? 1 : index + 1;
+}
+
+function workflowState(artifact) {
+  return artifact?.status === 'in-review' ? 'reviewed' : artifact?.status === 'published' ? 'published' : 'draft';
+}
+
+function workflowLabel(artifact) {
+  return workflowState(artifact).replace(/^./, (letter) => letter.toUpperCase());
+}
+
+function publishedRevision(artifact) {
+  return revisionsFor(artifact).find((revision) => revision.id === artifact?.publishedRevisionId) || null;
+}
+
+function publicationShare(artifact) {
+  const share = publishedRevision(artifact)?.share;
+  return share && typeof share === 'object' ? share : null;
+}
+
+function stableShare(artifact) {
+  const share = publicationShare(artifact);
+  return share && typeof share.stableUrl === 'string' ? share : null;
+}
+
+function hasChannelIdentity(artifact) {
+  const manifestId = artifact?.validation?.manifest?.id || inspectHtml(artifact?.html || '').manifest?.id;
+  return typeof manifestId === 'string' && manifestId === artifact?.id;
+}
+
+function revisionLabel(artifact, revisionId = artifact?.currentRevisionId) {
+  return `Revision ${String(revisionNumber(artifact, revisionId)).padStart(2, '0')}`;
+}
+
 function renderInspector() {
   const artifact = documents.find((item) => item.id === selectedId);
   $('#inspectorEmpty').hidden = Boolean(artifact);
@@ -389,6 +418,19 @@ function renderInspector() {
   const errors = health.issues.filter((issue) => issue.severity === 'error');
   const warnings = health.issues.filter((issue) => issue.severity === 'warning');
   $('#selectedType').textContent = artifact.type.toUpperCase();
+  const state = workflowState(artifact);
+  $('#selectedWorkflowStatus').dataset.status = state;
+  $('#selectedWorkflowStatus').textContent = state.toUpperCase();
+  $('#selectedRevisionLabel').textContent = revisionLabel(artifact);
+  const share = stableShare(artifact);
+  const revisionShare = publicationShare(artifact);
+  const publishedNumber = artifact.publishedRevisionId ? revisionNumber(artifact, artifact.publishedRevisionId) : null;
+  const ahead = Boolean(artifact.publishedRevisionId && artifact.publishedRevisionId !== artifact.currentRevisionId);
+  $('#selectedPublishedState').textContent = publishedNumber ? (!share ? `Revision ${String(publishedNumber).padStart(2, '0')} was last published; stable address revoked.` : ahead ? `Current draft is ahead of published revision ${String(publishedNumber).padStart(2, '0')}.` : `Published revision ${String(publishedNumber).padStart(2, '0')} is current.`) : 'Not published';
+  $('#selectedPublishedState').classList.toggle('is-behind', ahead);
+  $('#reviewButton').hidden = state === 'published';
+  $('#reviewButton').disabled = state === 'reviewed';
+  $('#reviewButton').textContent = state === 'draft' ? 'Mark reviewed' : 'Reviewed · ready to publish';
   $('#selectedTitle').textContent = artifact.title;
   $('#selectedSummary').textContent = artifact.summary || 'No summary provided.';
   $('#selectedTags').innerHTML = artifact.tags.map((tag) => `<span>${esc(tag)}</span>`).join('');
@@ -396,7 +438,7 @@ function renderInspector() {
   $('#selectedSource').textContent = artifact.source || 'Imported file';
   $('#selectedProject').textContent = projectFor(artifact).name;
   const identity = $('#selectedIdentity');
-  identity.textContent = artifact.identityState === 'catalog-copy' ? `Copy: ${artifact.id}` : artifact.sourceDocumentId ? `Aligned: ${artifact.id}` : `Library: ${artifact.id}`;
+  identity.textContent = artifact.forkedFrom ? `Fork: ${artifact.id}` : artifact.identityState === 'catalog-copy' ? `Copy: ${artifact.id}` : artifact.sourceDocumentId ? `Aligned: ${artifact.id}` : `Library: ${artifact.id}`;
   identity.title = `Library ID: ${artifact.id}${artifact.sourceDocumentId ? ` · source manifest ID: ${artifact.sourceDocumentId}` : ''}`;
   $('#selectedFormat').textContent = health.hasManifest || health.manifest ? SCHEMA : 'Plain HTML';
   $('#selectedSize').textContent = byteLabel(new Blob([artifact.html]).size);
@@ -407,12 +449,16 @@ function renderInspector() {
   $('#healthHint').textContent = health.valid ? (warnings.length ? `Contract passed · ${warnings.length} catalog or portability warning${warnings.length === 1 ? '' : 's'}.` : 'No contract errors detected.') : `${errors.length} error${errors.length === 1 ? '' : 's'} · ${warnings.length} warning${warnings.length === 1 ? '' : 's'}`;
   $('#healthIssues').innerHTML = health.issues.slice(0, 3).map((issue) => `<li class="issue-${esc(issue.severity)}">${esc(issue.message)}</li>`).join('');
   $('#repairButton').hidden = health.valid;
-  const share = artifact.share && typeof artifact.share.url === 'string' ? artifact.share : null;
-  $('#shareButton').disabled = !health.valid;
-  $('#shareButton').textContent = share ? 'Copy intranet link' : 'Publish intranet link';
+  $('#shareButton').disabled = !health.valid || !hasChannelIdentity(artifact);
+  $('#shareButton').title = hasChannelIdentity(artifact) ? '' : 'A Channel requires the logical Artifact ID to match the embedded HDOC manifest ID.';
+  $('#shareButton').textContent = state === 'published' && share ? 'Copy stable link' : artifact.publishedRevisionId ? 'Publish current revision' : 'Publish stable link';
   $('#shareRecord').hidden = !share;
-  $('#selectedShare').textContent = share?.url || '';
-  $('#selectedShare').href = share?.url || '#';
+  $('#revokeShareButton').hidden = !share;
+  $('#selectedShare').textContent = share?.stableUrl || '';
+  $('#selectedShare').href = share?.stableUrl || '#';
+  $('#selectedRevisionShare').textContent = revisionShare?.revisionUrl ? `Immutable snapshot: ${revisionShare.revisionUrl}` : 'Published revisions remain available at immutable addresses.';
+  $('#lineageRecord').hidden = !artifact.forkedFrom;
+  $('#selectedLineage').textContent = artifact.forkedFrom ? `${artifact.forkedFrom.artifactId} · ${artifact.forkedFrom.revisionId.slice(0, 18)}…` : '';
 }
 
 function render() { renderCollections(); renderProjects(); renderLibrary(); renderTemplates(); renderInspector(); $('#archiveDocumentCount').textContent = String(documents.length).padStart(2, '0'); renderFolderStatus(); }
@@ -433,8 +479,8 @@ function showToast(message) {
 }
 
 function pendingAgentInboxDocuments() {
-  const libraryIds = new Set(documents.map((artifact) => artifact.id));
-  return agentInboxDocuments.filter((artifact) => artifact && typeof artifact.id === 'string' && typeof artifact.html === 'string' && !libraryIds.has(artifact.id));
+  const knownHashes = new Set(documents.flatMap((artifact) => (artifact.revisions || []).map((revision) => revision.contentHash)));
+  return agentInboxDocuments.filter((artifact) => artifact && typeof artifact.id === 'string' && typeof artifact.html === 'string' && !knownHashes.has(artifact.sha256));
 }
 
 function updateAgentInboxBadge() {
@@ -478,14 +524,14 @@ function renderAgentInbox({ online = true, error = null } = {}) {
     return;
   }
   const pending = pendingAgentInboxDocuments();
-  const pendingIds = new Set(pending.map((artifact) => artifact.id));
+  const pendingIds = new Set(pending.map((artifact) => artifact.sha256 || artifact.id));
   selectedAgentInboxIds = new Set([...selectedAgentInboxIds].filter((id) => pendingIds.has(id)));
-  const selectedCount = pending.filter((artifact) => selectedAgentInboxIds.has(artifact.id)).length;
+  const selectedCount = pending.filter((artifact) => selectedAgentInboxIds.has(artifact.sha256 || artifact.id)).length;
   const existing = agentInboxDocuments.length - pending.length;
   status.textContent = pending.length ? `${pending.length} artifact${pending.length === 1 ? '' : 's'} ready for review` : 'Inbox is up to date';
   hint.textContent = existing ? `${existing} already present in this browser and will never be overwritten.` : 'Select the artifacts to import; Bridge never writes the browser library directly.';
   list.innerHTML = pending.length
-    ? pending.map((artifact) => `<li><label class="agent-inbox-choice"><input type="checkbox" data-agent-inbox-id="${esc(artifact.id)}"${selectedAgentInboxIds.has(artifact.id) ? ' checked' : ''}><span><b>${esc(artifact.title || artifact.id)}</b><small>${esc(projectFor(artifact).name)} · ${esc(artifact.type || 'reference').toUpperCase()} · ${esc(artifact.source || 'unnamed-agent')} · ${esc(artifact.id)}</small></span></label></li>`).join('')
+    ? pending.map((artifact) => `<li><label class="agent-inbox-choice"><input type="checkbox" data-agent-inbox-id="${esc(artifact.sha256 || artifact.id)}"${selectedAgentInboxIds.has(artifact.sha256 || artifact.id) ? ' checked' : ''}><span><b>${esc(artifact.title || artifact.id)}</b><small>${esc(projectFor(artifact).name)} · ${esc(artifact.type || 'reference').toUpperCase()} · ${esc(artifact.source || 'unnamed-agent')} · revision ${esc((artifact.sha256 || '').slice(0, 10))}</small></span></label></li>`).join('')
     : '<li><b>No new artifacts</b><small>When an Agent submits a valid HDOC document, it will appear here for your explicit import.</small></li>';
   list.querySelectorAll('[data-agent-inbox-id]').forEach((input) => input.addEventListener('change', () => {
     const id = input.dataset.agentInboxId;
@@ -530,17 +576,18 @@ function openAgentInbox() {
 }
 
 async function importAgentInbox() {
-  const pending = pendingAgentInboxDocuments().filter((artifact) => selectedAgentInboxIds.has(artifact.id));
+  const pending = pendingAgentInboxDocuments().filter((artifact) => selectedAgentInboxIds.has(artifact.sha256 || artifact.id));
   if (!pending.length) { showToast('Select one or more Agent artifacts first.'); return; }
-  const takenIds = new Set(documents.map((artifact) => artifact.id));
-  const knownSourceIds = sourceIdentitySet();
   const accepted = [];
-  const duplicates = [];
+  const importedHeads = new Map();
   let rejected = 0;
   for (const remote of pending) {
     try {
-      const artifact = enrichArtifact({
-        id: remote.id,
+      const storedArtifact = await channelRepository.getArtifact(remote.id);
+      const storedDocument = storedArtifact ? await channelRepository.getDocument(remote.id) : null;
+      const existing = importedHeads.get(remote.id) || documents.find((item) => item.id === remote.id) || lineageSources.get(remote.id) || (storedDocument ? { ...storedDocument, revisions: await channelRepository.listRevisions(remote.id) } : null);
+      const incoming = enrichArtifact({
+        id: existing?.id || remote.id,
         sourceDocumentId: remote.source_document_id || remote.id,
         title: remote.title,
         type: remote.type,
@@ -552,22 +599,31 @@ async function importAgentInbox() {
         updatedAt: remote.updated_at,
         html: remote.html,
         bridge: { source: remote.source, receivedAt: remote.received_at, sha256: remote.sha256 }
-      }, { takenIds, existingSourceIds: knownSourceIds, preserveId: false });
-      if (artifact.sourceDocumentId) knownSourceIds.add(artifact.sourceDocumentId);
-      (artifact.identityState === 'catalog-copy' ? duplicates : accepted).push(artifact);
+      }, { takenIds: new Set(), preserveId: true });
+      const result = await channelRepository.createOrRevise(incoming, {
+        artifactId: incoming.id,
+        expectedCurrentRevisionId: existing?.currentRevisionId,
+        updateCatalog: false
+      });
+      const stored = { ...result.document, revisions: await channelRepository.listRevisions(incoming.id) };
+      accepted.push(stored);
+      importedHeads.set(remote.id, stored);
     } catch (error) {
       rejected += 1;
       console.warn('A Bridge artifact could not be indexed.', error);
     }
   }
   $('#agentInboxDialog').close();
-  pending.forEach((artifact) => selectedAgentInboxIds.delete(artifact.id));
-  const afterImport = () => refreshAgentInbox();
-  if (duplicates.length) showDuplicateImportResolution(accepted, duplicates, { label: 'Agent artifact', skipped: rejected, afterPersist: afterImport });
-  else {
-    await persistImportedArtifacts(accepted, { label: 'Agent artifact', skipped: rejected });
-    await afterImport();
-  }
+  pending.forEach((artifact) => selectedAgentInboxIds.delete(artifact.sha256 || artifact.id));
+  const acceptedById = new Map(accepted.map((saved) => [saved.id, saved]));
+  const latestAccepted = [...acceptedById.values()];
+  latestAccepted.forEach((saved) => lineageSources.delete(saved.id));
+  documents = documents.filter((item) => !acceptedById.has(item.id));
+  documents.push(...latestAccepted);
+  if (latestAccepted.length) selectedId = latestAccepted.at(-1).id;
+  render();
+  showToast(`${accepted.length} Agent revision${accepted.length === 1 ? '' : 's'} accepted${rejected ? ` · ${rejected} rejected` : ''}.`);
+  await refreshAgentInbox();
 }
 
 async function renderFolderStatus() {
@@ -713,8 +769,7 @@ async function createFromTemplate() {
     : templateToCreate.id === 'decision-brief'
       ? [['Decision and deadline', 'Describe the call that needs to be made, the owner, and the non-negotiable constraints.'], ['Recommendation', 'State the selected path in one direct sentence before explaining the alternatives.'], ['Options and comparison', 'Compare realistic alternatives on the same benefits, costs, risks, and evidence.'], ['Action and checkpoint', 'Name the next action, accountable owner, and date or condition for review.'], ['Risk and reversal condition', 'Record the assumption, counter-signal, or new evidence that would reopen the decision.']]
       : [['Pattern in one line', 'Explain the reusable idea in plain language before adding implementation detail.'], ['When to use it', 'State the preconditions, expected benefit, and the case where a simpler alternative is better.'], ['Smallest reliable workflow', 'Describe the fewest dependable steps and the observable result that confirms success.'], ['Caveats and sources', 'Record version sensitivity, constraints, primary sources, and links worth recovering later.']];
-  const artifact = enrichArtifact({ ...base, html: articleHtml(base, sections) }, { takenIds: new Set(documents.map((item) => item.id)) });
-  await saveDocument(artifact);
+  const artifact = await saveDocument(enrichArtifact({ ...base, html: articleHtml(base, sections) }, { takenIds: new Set(documents.map((item) => item.id)) }));
   documents.push(artifact);
   selectedId = artifact.id;
   $('#createDialog').close();
@@ -728,8 +783,13 @@ function sourceIdentitySet(records = documents) {
   return new Set(records.map((artifact) => artifact.sourceDocumentId).filter(Boolean));
 }
 
-function parseHtmlDocument(html, filename, takenIds, existingSourceIds) {
-  return enrichArtifact({ html, source: filename }, { fallbackName: filename.replace(/\.html?$/i, ''), takenIds, existingSourceIds });
+function parseHtmlDocument(html, filename, takenIds) {
+  const candidate = enrichArtifact({ html, source: filename }, { fallbackName: filename.replace(/\.html?$/i, ''), takenIds: new Set() });
+  const existing = documents.find((artifact) => artifact.id === candidate.sourceDocumentId) || lineageSources.get(candidate.sourceDocumentId);
+  if (existing) return { ...candidate, id: existing.id, identityState: existing.identityState };
+  candidate.id = uniqueId(candidate.id, candidate.title, takenIds);
+  takenIds.add(candidate.id);
+  return candidate;
 }
 
 async function persistImportedArtifacts(artifacts, { label = 'artifact', skipped = 0 } = {}) {
@@ -737,10 +797,17 @@ async function persistImportedArtifacts(artifacts, { label = 'artifact', skipped
     if (skipped) showToast(`${skipped} duplicate artifact${skipped === 1 ? '' : 's'} skipped.`);
     return;
   }
-  const outcomes = await Promise.allSettled(artifacts.map(saveDocument));
-  const saved = artifacts.filter((_, index) => outcomes[index].status === 'fulfilled');
+  const outcomes = [];
+  for (const artifact of restoreOrder(artifacts)) {
+    try { outcomes.push({ status: 'fulfilled', value: await restoreImportedArtifact(artifact) }); }
+    catch (reason) { outcomes.push({ status: 'rejected', reason }); }
+  }
+  const savedById = new Map(outcomes.filter((outcome) => outcome.status === 'fulfilled').map((outcome) => [outcome.value.id, outcome.value]));
+  const saved = [...savedById.values()];
   const failed = artifacts.length - saved.length;
   if (saved.length) {
+    saved.forEach((record) => lineageSources.delete(record.id));
+    documents = documents.filter((item) => !saved.some((record) => record.id === item.id));
     documents.push(...saved);
     selectedId = saved.at(-1).id;
     showView('library');
@@ -748,6 +815,64 @@ async function persistImportedArtifacts(artifacts, { label = 'artifact', skipped
   }
   if (failed) console.error('Some imported artifacts could not be saved.', outcomes.filter((outcome) => outcome.status === 'rejected'));
   showToast(`${saved.length} ${label}${saved.length === 1 ? '' : 's'} added${skipped ? ` · ${skipped} skipped` : ''}${failed ? ` · ${failed} could not be saved` : ''}.`);
+}
+
+function restoreOrder(artifacts) {
+  const pending = [...artifacts];
+  const incomingIds = new Set(pending.map((artifact) => artifact.id));
+  const resolved = new Set(documents.map((artifact) => artifact.id));
+  const ordered = [];
+  while (pending.length) {
+    const index = pending.findIndex((artifact) => {
+      const firstParent = Array.isArray(artifact.revisions) ? artifact.revisions[0]?.parent?.artifactId : null;
+      const dependency = artifact.forkedFrom?.artifactId || firstParent;
+      return !dependency || !incomingIds.has(dependency) || resolved.has(dependency);
+    });
+    const [next] = pending.splice(index < 0 ? 0 : index, 1);
+    ordered.push(next);
+    resolved.add(next.id);
+  }
+  return ordered;
+}
+
+async function restoreImportedArtifact(artifact) {
+  const history = Array.isArray(artifact.revisions) ? artifact.revisions.filter((revision) => revision && typeof revision.html === 'string') : [];
+  if (!history.length || await channelRepository.getArtifact(artifact.id)) return saveDocument(artifact);
+  const catalog = Object.fromEntries(Object.entries(artifact).filter(([key]) => key !== 'revisions' && key !== 'html' && key !== 'validation' && key !== 'contentText' && key !== 'share'));
+  let expectedCurrentRevisionId;
+  for (const revision of history) {
+    const parent = revision.parent && (await channelRepository.getRevision(revision.parent.artifactId, revision.parent.revisionId)) ? revision.parent : undefined;
+    const result = await channelRepository.createOrRevise({
+      ...catalog,
+      html: revision.html,
+      contentText: revision.contentText || '',
+      validation: revision.validation || null,
+      authoredAt: revision.authoredAt,
+      author: revision.author,
+      updatedAt: revision.authoredAt || revision.createdAt || artifact.updatedAt
+    }, {
+      artifactId: artifact.id,
+      expectedCurrentRevisionId,
+      ...(parent ? { parent } : {}),
+      ...(expectedCurrentRevisionId === undefined && artifact.forkedFrom ? { forkedFrom: artifact.forkedFrom } : {}),
+      revisionShare: revision.share || null,
+      updateCatalog: expectedCurrentRevisionId !== undefined
+    });
+    expectedCurrentRevisionId = result.revision.id;
+  }
+  if (artifact.publishedRevisionId && await channelRepository.getRevision(artifact.id, artifact.publishedRevisionId)) {
+    await channelRepository.setStatus(artifact.id, 'published', { revisionId: artifact.publishedRevisionId });
+  }
+  if (artifact.currentRevisionId && await channelRepository.getRevision(artifact.id, artifact.currentRevisionId)) {
+    await channelRepository.setCurrentRevision(artifact.id, artifact.currentRevisionId);
+  }
+  if (artifact.status !== 'published' && ['draft', 'in-review', 'archived'].includes(artifact.status)) await channelRepository.setStatus(artifact.id, artifact.status);
+  return refreshImportedArtifact(artifact.id);
+}
+
+async function refreshImportedArtifact(id) {
+  const document = await channelRepository.getDocument(id);
+  return { ...document, revisions: await channelRepository.listRevisions(id) };
 }
 
 function showDuplicateImportResolution(accepted, duplicates, { label = 'artifact', skipped = 0, afterPersist = null } = {}) {
@@ -769,23 +894,21 @@ async function importFiles(files) {
   const htmlFiles = [...files].filter((file) => /\.html?$/i.test(file.name) || file.type === 'text/html');
   if (!htmlFiles.length) { showToast('Choose one or more .html files.'); return; }
   const takenIds = new Set(documents.map((artifact) => artifact.id));
-  const knownSourceIds = sourceIdentitySet();
   const imported = [];
-  const duplicates = [];
   const rejected = [];
   for (const file of htmlFiles) {
     if (file.size > MAX_IMPORT_BYTES) { rejected.push(`${file.name} is larger than 5 MB`); continue; }
     try {
-      const artifact = parseHtmlDocument(await file.text(), file.name, takenIds, knownSourceIds);
-      if (artifact.sourceDocumentId) knownSourceIds.add(artifact.sourceDocumentId);
-      (artifact.identityState === 'catalog-copy' ? duplicates : imported).push(artifact);
+      const artifact = parseHtmlDocument(await file.text(), file.name, takenIds);
+      const archived = artifact.sourceDocumentId ? await channelRepository.getArtifact(artifact.sourceDocumentId) : null;
+      if (archived) artifact.id = archived.id;
+      imported.push(artifact);
     } catch (error) {
       rejected.push(`${file.name} could not be indexed`);
       console.warn(error);
     }
   }
-  if (duplicates.length) showDuplicateImportResolution(imported, duplicates, { skipped: rejected.length });
-  else if (imported.length) await persistImportedArtifacts(imported, { skipped: rejected.length });
+  if (imported.length) await persistImportedArtifacts(imported, { skipped: rejected.length });
   else showToast(rejected[0] || 'No readable HTML artifacts were added.');
 }
 
@@ -828,6 +951,8 @@ function openReader(id = selectedId) {
   readerArtifactId = artifact.id;
   clearTimeout(readerSlowTimer);
   $('#readerTitle').textContent = artifact.title;
+  $('#readerRevisionState').dataset.status = workflowState(artifact);
+  $('#readerRevisionState').textContent = `v${revisionNumber(artifact)} · ${workflowLabel(artifact)}`;
   $('#readerLoadingTitle').textContent = 'Opening document';
   $('#readerLoadingHint').textContent = 'Preparing preview…';
   loading.hidden = false;
@@ -891,26 +1016,56 @@ async function copyText(value) {
   }
 }
 
+async function refreshArtifact(id) {
+  const document = await channelRepository.getDocument(id);
+  if (!document) return null;
+  const refreshed = { ...document, revisions: await channelRepository.listRevisions(id) };
+  documents = documents.map((item) => item.id === id ? refreshed : item);
+  return refreshed;
+}
+
+async function markReviewed() {
+  const artifact = selectedDocument();
+  if (!artifact || workflowState(artifact) !== 'draft') return;
+  await channelRepository.setStatus(artifact.id, 'in-review', { revisionId: artifact.currentRevisionId });
+  await refreshArtifact(artifact.id);
+  render();
+  showToast('Current revision marked reviewed.');
+}
+
 async function publishDocument(artifact = selectedDocument()) {
   if (!artifact) return;
+  if (!hasChannelIdentity(artifact)) { showToast('Create a new HDOC revision whose manifest ID matches this Artifact before publishing it as a Channel.'); return; }
+  if (workflowState(artifact) === 'draft') { showToast('Mark the current revision reviewed before publishing.'); return; }
   const health = artifact.validation || inspectHtml(artifact.html);
   if (!health.valid) { showToast('Repair the HDOC contract before publishing.'); return; }
+  const existingShare = stableShare(artifact);
+  if (artifact.status === 'published' && artifact.publishedRevisionId === artifact.currentRevisionId && existingShare) {
+    const copied = await copyText(existingShare.stableUrl);
+    showToast(copied ? 'Stable address copied.' : 'Stable address is shown in the inspector.');
+    return;
+  }
   const buttons = $$('[data-share-action]');
   buttons.forEach((button) => { button.disabled = true; });
   try {
-    const response = await fetch(SHARE_API_URL, {
+    const baseRevision = artifact.publishedRevisionId?.replace(/^sha256:/, '') || undefined;
+    const response = await fetch(`${CHANNEL_API_URL}/publish`, {
       method: 'POST',
       headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-      body: JSON.stringify({ html: artifact.html })
+      body: JSON.stringify({ html: artifact.html, ...(baseRevision ? { base_revision_sha256: baseRevision } : {}) })
     });
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok || !payload.url) throw new Error(payload.errors?.[0] || payload.message || `Share service returned ${response.status}.`);
-    const published = { ...artifact, share: { url: payload.url, sha256: payload.sha256, publishedAt: new Date().toISOString() } };
-    await saveDocument(published);
-    documents = documents.map((item) => item.id === published.id ? published : item);
-    renderInspector();
-    const copied = await copyText(payload.url);
-    showToast(copied ? 'Read-only intranet link copied.' : 'Published; the link is shown in the inspector.');
+    if (!response.ok || !payload.stable_url) throw new Error(payload.errors?.[0] || payload.message || (response.status === 409 ? 'The published Channel changed; refresh before publishing again.' : `Share service returned ${response.status}.`));
+    await channelRepository.setRevisionShare(artifact.id, artifact.currentRevisionId, { artifactId: payload.artifact?.id || artifact.id, stableUrl: payload.stable_url, revisionUrl: payload.revision_url, sha256: payload.sha256, publishedAt: new Date().toISOString() });
+    await channelRepository.setStatus(artifact.id, 'published', { revisionId: artifact.currentRevisionId });
+    const refreshed = await refreshArtifact(artifact.id);
+    if (readerArtifactId === artifact.id) {
+      $('#readerRevisionState').dataset.status = workflowState(refreshed);
+      $('#readerRevisionState').textContent = `v${revisionNumber(refreshed)} · ${workflowLabel(refreshed)}`;
+    }
+    render();
+    const copied = await copyText(payload.stable_url);
+    showToast(copied ? 'Stable Channel address copied.' : 'Published; the stable address is shown in the inspector.');
   } catch (error) {
     console.error(error);
     showToast('This page could not be published to the intranet.');
@@ -919,8 +1074,135 @@ async function publishDocument(artifact = selectedDocument()) {
   }
 }
 
+async function revokePublication() {
+  const artifact = selectedDocument();
+  const share = stableShare(artifact);
+  if (!artifact || !share) return;
+  try {
+    const base = artifact.publishedRevisionId.replace(/^sha256:/, '');
+    const response = await fetch(`${CHANNEL_API_URL}/artifacts/${encodeURIComponent(share.artifactId || artifact.id)}/revoke`, {
+      method: 'POST',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ base_revision_sha256: base })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.message || `Share service returned ${response.status}.`);
+    await channelRepository.revokePublication(artifact.id, artifact.publishedRevisionId, { ...share, stableUrl: null, revokedAt: new Date().toISOString() });
+    await refreshArtifact(artifact.id);
+    render();
+    showToast('Stable address revoked. Immutable revision links remain available.');
+  } catch (error) {
+    console.error(error);
+    showToast('The stable address could not be revoked.');
+  }
+}
+
+function historyArtifact() {
+  const id = $('#historyDialog').dataset.artifactId;
+  return documents.find((artifact) => artifact.id === id) || lineageSources.get(id) || selectedDocument();
+}
+
+function revisionOptionLabel(artifact, revision) {
+  const flags = [];
+  if (revision.id === artifact.currentRevisionId) flags.push('current');
+  if (revision.id === artifact.publishedRevisionId) flags.push('published');
+  return `${revisionLabel(artifact, revision.id)}${flags.length ? ` · ${flags.join(', ')}` : ''}`;
+}
+
+function renderVisualDiff() {
+  const artifact = historyArtifact();
+  if (!artifact) return;
+  const revisions = revisionsFor(artifact);
+  const before = revisions.find((revision) => revision.id === $('#compareFrom').value) || revisions[0];
+  const after = revisions.find((revision) => revision.id === $('#compareTo').value) || revisions.at(-1);
+  if (!before || !after) return;
+  $('#diffBeforeLabel').textContent = revisionOptionLabel(artifact, before);
+  $('#diffAfterLabel').textContent = revisionOptionLabel(artifact, after);
+  $('#diffBefore').srcdoc = safeReaderSource(before.html);
+  $('#diffAfter').srcdoc = safeReaderSource(after.html);
+  $$('#revisionTimeline li').forEach((item) => item.classList.toggle('is-selected', item.dataset.revisionId === after.id));
+}
+
+function openHistoryDialog(artifact = selectedDocument(), selectedRevisionId = null) {
+  if (!artifact) return;
+  const revisions = revisionsFor(artifact);
+  const share = stableShare(artifact);
+  const dialog = $('#historyDialog');
+  dialog.dataset.artifactId = artifact.id;
+  dialog.dataset.selectedRevisionId = selectedRevisionId || artifact.currentRevisionId;
+  $('#historyArtifactIdentity').textContent = `${artifact.id} · ${workflowLabel(artifact).toUpperCase()}`;
+  $('#historyArtifactTitle').textContent = artifact.title;
+  $('#historyStableLink').textContent = share?.stableUrl || 'Not published';
+  $('#historyStableLink').href = share?.stableUrl || '#';
+  $('#historyStableLink').removeAttribute('aria-disabled');
+  if (!share) $('#historyStableLink').setAttribute('aria-disabled', 'true');
+  $('#historyRevisionCount').textContent = String(revisions.length).padStart(2, '0');
+  $('#revisionTimeline').innerHTML = revisions.slice().reverse().map((revision) => {
+    const current = revision.id === artifact.currentRevisionId;
+    const published = revision.id === artifact.publishedRevisionId;
+    return `<li data-revision-id="${esc(revision.id)}" class="${current ? 'is-current ' : ''}${revision.id === dialog.dataset.selectedRevisionId ? 'is-selected' : ''}"><button type="button" data-compare-revision="${esc(revision.id)}"><b>${esc(revisionLabel(artifact, revision.id))}${current ? ' · CURRENT' : ''}</b><small>${esc(dateLabel(revision.createdAt))}${published ? ' · PUBLISHED' : ''}<br>${esc(revision.contentHash.slice(0, 12))}</small></button></li>`;
+  }).join('');
+  const options = revisions.map((revision) => `<option value="${esc(revision.id)}">${esc(revisionOptionLabel(artifact, revision))}</option>`).join('');
+  $('#compareFrom').innerHTML = options;
+  $('#compareTo').innerHTML = options;
+  const selectedIndex = Math.max(0, revisions.findIndex((revision) => revision.id === dialog.dataset.selectedRevisionId));
+  $('#compareTo').value = revisions[selectedIndex]?.id || artifact.currentRevisionId;
+  $('#compareFrom').value = revisions[Math.max(0, selectedIndex - 1)]?.id || $('#compareTo').value;
+  $$('#revisionTimeline [data-compare-revision]').forEach((button) => button.addEventListener('click', () => {
+    dialog.dataset.selectedRevisionId = button.dataset.compareRevision;
+    $('#compareTo').value = button.dataset.compareRevision;
+    const index = revisions.findIndex((revision) => revision.id === button.dataset.compareRevision);
+    $('#compareFrom').value = revisions[Math.max(0, index - 1)]?.id || button.dataset.compareRevision;
+    renderVisualDiff();
+  }));
+  renderVisualDiff();
+  if (!dialog.open) dialog.showModal();
+}
+
+function closeHistoryDialog() {
+  $('#diffBefore').removeAttribute('srcdoc');
+  $('#diffAfter').removeAttribute('srcdoc');
+  $('#diffBefore').src = 'about:blank';
+  $('#diffAfter').src = 'about:blank';
+  $('#historyDialog').removeAttribute('data-artifact-id');
+  $('#historyDialog').removeAttribute('data-selected-revision-id');
+}
+
+async function forkArtifact() {
+  const source = historyArtifact() || selectedDocument();
+  if (!source) return;
+  const revisionId = $('#historyDialog').open ? ($('#historyDialog').dataset.selectedRevisionId || $('#compareTo').value) : source.currentRevisionId;
+  const now = new Date().toISOString();
+  const newId = `${source.id}-fork-${Date.now().toString(36)}`;
+  const result = await channelRepository.fork(source.id, {
+    id: newId,
+    title: `${source.title} — fork`,
+    source: 'Helm fork',
+    identityState: 'fork',
+    project: projectFor(source),
+    createdAt: now,
+    updatedAt: now
+  }, { artifactId: newId, revisionId });
+  const fork = { ...result.document, revisions: await channelRepository.listRevisions(newId) };
+  documents.push(fork);
+  selectedId = fork.id;
+  if ($('#historyDialog').open) $('#historyDialog').close();
+  render();
+  showToast(`Forked ${revisionLabel(source, revisionId)} as a new artifact.`);
+}
+
+async function openLineage() {
+  const artifact = selectedDocument();
+  if (!artifact?.forkedFrom) return;
+  await loadLineageSource(artifact.forkedFrom.artifactId);
+  const source = documents.find((item) => item.id === artifact.forkedFrom.artifactId) || lineageSources.get(artifact.forkedFrom.artifactId);
+  if (!source) { showToast('The source artifact is not present in this library.'); return; }
+  openHistoryDialog(source, artifact.forkedFrom.revisionId);
+}
+
 function archiveRecords() {
-  return documents.map(({ contentText, validation, ...record }) => record);
+  const records = new Map([...lineageSources.values(), ...documents].map((artifact) => [artifact.id, artifact]));
+  return [...records.values()].map(({ contentText, validation, ...record }) => record);
 }
 
 async function exportArchive() {
@@ -984,19 +1266,17 @@ async function saveCatalogMetadata() {
   const title = $('#catalogTitle').value.trim();
   if (!artifact || !title) return;
   const type = $('#catalogType').value;
-  const updated = {
-    ...artifact,
+  const patch = {
     title: title.slice(0, 100),
     type: DOCUMENT_TYPES.has(type) ? type : artifact.type,
     summary: $('#catalogSummary').value.trim().slice(0, 240),
     tags: normaliseTags($('#catalogTags').value),
     source: $('#catalogSource').value.trim().slice(0, 120) || 'Personal archive',
-    project: normaliseProject($('#catalogProject').value),
-    catalogUpdatedAt: new Date().toISOString()
+    project: normaliseProject($('#catalogProject').value)
   };
-  await saveDocument(updated);
-  documents = documents.map((item) => item.id === updated.id ? updated : item);
-  selectedId = updated.id;
+  await channelRepository.updateCatalog(artifact.id, patch);
+  await refreshArtifact(artifact.id);
+  selectedId = artifact.id;
   editingId = null;
   $('#metadataDialog').close();
   render();
@@ -1011,9 +1291,9 @@ async function repairSelected() {
     const result = repair.createCompliantCopy(artifact, { existingIds: new Set(documents.map((item) => item.id)) });
     const repaired = enrichArtifact(result.record, { takenIds: new Set(documents.map((item) => item.id)), preserveId: true });
     if (!repaired.validation.valid) throw new Error('The generated compliant copy did not pass validation.');
-    await saveDocument(repaired);
-    documents.push(repaired);
-    selectedId = repaired.id;
+    const stored = await saveDocument(repaired);
+    documents.push(stored);
+    selectedId = stored.id;
     render();
     showToast('A new compliant copy was created. The original is unchanged.');
   } catch (error) {
@@ -1025,14 +1305,16 @@ async function repairSelected() {
 async function deleteSelected() {
   const artifact = selectedDocument();
   if (!artifact) return;
+  const hasForks = documents.some((item) => item.forkedFrom?.artifactId === artifact.id);
   const lastFolderSync = await getSetting('lastFolderSyncAt');
   const backupHint = lastFolderSync ? ` A folder sync was recorded on ${dateLabel(lastFolderSync)}; export or sync again if this change should be recoverable.` : ' No completed folder sync is recorded for this browser library.';
   if (!confirm(`Remove “${artifact.title}” from this browser? The original file will not be touched.${backupHint}`)) return;
-  await removeDocument(artifact.id);
+  await removeDocument(artifact.id, { hard: !hasForks });
+  if (hasForks) lineageSources.set(artifact.id, artifact);
   documents = documents.filter((item) => item.id !== artifact.id);
   selectedId = documents[0]?.id || null;
   render();
-  showToast('Artifact removed from this browser.');
+  showToast(hasForks ? 'Artifact archived so existing Fork lineage remains verifiable.' : 'Artifact removed from this browser.');
 }
 
 function wireEvents() {
@@ -1067,7 +1349,18 @@ function wireEvents() {
   $('#previewButton').addEventListener('click', () => openReader());
   $('#exportButton').addEventListener('click', () => downloadDocument());
   $('#shareButton').addEventListener('click', () => publishDocument());
+  $('#revokeShareButton').addEventListener('click', revokePublication);
   $('#readerShare').addEventListener('click', () => publishDocument(readerDocument()));
+  $('#reviewButton').addEventListener('click', markReviewed);
+  $('#historyButton').addEventListener('click', () => openHistoryDialog());
+  $('#readerHistory').addEventListener('click', () => openHistoryDialog(readerDocument()));
+  $('#forkButton').addEventListener('click', forkArtifact);
+  $('#forkArtifactButton').addEventListener('click', forkArtifact);
+  $('#openLineageButton').addEventListener('click', openLineage);
+  $('#compareFrom').addEventListener('change', renderVisualDiff);
+  $('#compareTo').addEventListener('change', () => { $('#historyDialog').dataset.selectedRevisionId = $('#compareTo').value; renderVisualDiff(); });
+  $('#closeHistory').addEventListener('click', () => $('#historyDialog').close());
+  $('#historyDialog').addEventListener('close', closeHistoryDialog);
   $('#readerExport').addEventListener('click', () => downloadDocument(readerDocument()));
   $('#closeReader').addEventListener('click', () => $('#readerDialog').close());
   $('#readerDialog').addEventListener('close', resetReaderFrame);
