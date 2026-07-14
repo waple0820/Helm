@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 import sys
 import tempfile
+import threading
 import unittest
 from stat import S_IMODE
 from pathlib import Path
+from urllib.request import Request, urlopen
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from helm_bridge import BridgeCatalog, ContractError, validate_hdoc
+from helm_bridge import BridgeCatalog, BridgeHTTPServer, ContractError, is_allowed_browser_origin, validate_hdoc
 
 
 def document(document_id="agent-report", title="Agent report", body="Evidence", project=None):
@@ -22,6 +24,58 @@ class HelmBridgeTests(unittest.TestCase):
         self.assertEqual(warnings, [])
         with self.assertRaises(ContractError):
             validate_hdoc(document().replace("</body>", "<script>alert(1)</script></body>"))
+
+    def test_portability_warnings_cover_relative_and_remote_dependencies(self):
+        relative = document(body='<a href="../stage2/report.html">Stage two</a><img src="./chart.png" alt="Chart">')
+        _, warnings = validate_hdoc(relative)
+        self.assertTrue(any("relative files or links" in warning for warning in warnings))
+
+        remote_media = document(body='<img src="https://cdn.example/chart.png" alt="Chart">')
+        _, warnings = validate_hdoc(remote_media)
+        self.assertTrue(any("remote resources" in warning for warning in warnings))
+
+        portable_links = document(body='<a href="#finding">Finding</a><a href="mailto:owner@example.com">Owner</a><img src="data:image/gif;base64,AA==" alt="Dot">')
+        _, warnings = validate_hdoc(portable_links)
+        self.assertEqual(warnings, [])
+
+    def test_cors_accepts_loopback_on_any_port_but_not_arbitrary_origins(self):
+        for origin in (
+            "http://127.0.0.1:4173",
+            "http://127.0.0.1:4182",
+            "http://localhost:9000",
+            "https://[::1]:4443",
+        ):
+            with self.subTest(origin=origin):
+                self.assertTrue(is_allowed_browser_origin(origin))
+        for origin in (
+            "https://evil.example",
+            "http://localhost.evil.example:4173",
+            "http://user@localhost:4173",
+            "http://localhost:4173/path",
+            "null",
+        ):
+            with self.subTest(origin=origin):
+                self.assertFalse(is_allowed_browser_origin(origin))
+        self.assertTrue(is_allowed_browser_origin("https://helm.example", {"https://helm.example"}))
+
+    def test_http_cors_reflects_only_allowed_origin(self):
+        with tempfile.TemporaryDirectory() as directory:
+            catalog = BridgeCatalog(Path(directory))
+            spec_path = Path(directory) / "spec.md"
+            spec_path.write_text("contract", encoding="utf-8")
+            server = BridgeHTTPServer(("127.0.0.1", 0), catalog, "token", spec_path, set())
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            endpoint = f"http://127.0.0.1:{server.server_port}/v1/health"
+            try:
+                with urlopen(Request(endpoint, headers={"Origin": "http://localhost:4182"})) as response:
+                    self.assertEqual(response.headers.get("Access-Control-Allow-Origin"), "http://localhost:4182")
+                with urlopen(Request(endpoint, headers={"Origin": "https://evil.example"})) as response:
+                    self.assertIsNone(response.headers.get("Access-Control-Allow-Origin"))
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
 
     def test_idempotency_revision_history_and_exact_originals(self):
         source = document(body="Exact original text.").encode("utf-8")

@@ -48,10 +48,11 @@
 
       let artifacts = await store.listArtifacts({ includeArchived: true });
       assert(artifacts.length === 1, 'legacy document migrates once');
-      assert(artifacts[0].status === 'published', 'legacy share becomes published status');
+      assert(artifacts[0].status === 'published', 'legacy share remains visibly published');
       let revisions = await store.listRevisions('artifact-one');
       assert(revisions.length === 1 && revisions[0].html === originalHtml, 'migration preserves original HTML bytes');
       assert(artifacts[0].publishedRevisionId === revisions[0].id, 'published revision is explicit');
+      assert(revisions[0].share.kind === 'legacy' && revisions[0].share.legacyUrl === '/share/original.html' && !revisions[0].share.stableUrl, 'legacy one-shot share is explicit and never impersonates a stable Channel');
 
       await store.migrateLegacyDocuments();
       revisions = await store.listRevisions('artifact-one');

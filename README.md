@@ -40,7 +40,7 @@ Agent / project
        └─ Helm Bridge inbox ── owner review ──> browser library (IndexedDB)
              │                                      │
              └─ exact original bytes                ├─ HARC backup / explicit folder sync
-                                                    └─ explicit immutable intranet share
+                                                    └─ reviewed Channel + immutable Revisions
 ```
 
 The important boundary is deliberate: submitting to the Bridge is a handoff, not permission to modify the browser library.
@@ -82,10 +82,12 @@ Helm has no package-install step. Run the same checks used by CI:
 
 ```bash
 python3 -m unittest discover -s tests -p 'test_*.py'
-python3 helm_share_server.py --host 127.0.0.1 --port 4173
+python3 -m http.server 4183 --bind 127.0.0.1
 ```
 
-The browser smoke pages are available at [`/tests/contract-smoke.html`](tests/contract-smoke.html) and [`/tests/repair-smoke.html`](tests/repair-smoke.html) while the local server is running. Both should show `passed`.
+Open the browser smoke pages at `http://127.0.0.1:4183/tests/contract-smoke.html`, `channel-store-smoke.html`, and `repair-smoke.html`. The production share server deliberately blocks `/tests`; use this isolated static development port for browser checks.
+
+For a reviewed remote intranet installation, use [`scripts/deploy-remote`](scripts/deploy-remote). It deploys only the committed tree, tests it before activation, keeps runtime shares outside the release, and rolls back a failed health check. See [`docs/INTRANET-SHARING.md`](docs/INTRANET-SHARING.md).
 
 ## Scope and boundaries
 

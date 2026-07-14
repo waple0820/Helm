@@ -65,7 +65,17 @@ Existing one-shot sharing remains fully compatible:
 
 - `POST /api/share` publishes one validated document through loopback.
 - `GET /share/<document-id>--<digest-prefix>.html` remains an immutable public address.
-- Existing flat share files are not migrated, renamed, redirected, or deleted.
+- Existing flat share files are not renamed or redirected during the Channels migration. Helm keeps their original URL visible as a **Legacy immutable share** instead of misreporting it as a Channel.
+- The owner may explicitly retire one exact legacy URL with `POST /api/share/revoke`. The request must include both its `/share/...` path and full SHA-256 digest; Helm verifies the path, filename digest prefix, and stored bytes before deleting that one file.
+
+```http
+POST /api/share/revoke
+Content-Type: application/json
+
+{"path":"/share/<document-id>--<digest-prefix>.html", "sha256":"<full sha256>"}
+```
+
+After this explicit action the legacy URL returns `404 Not Found`. Unlike a Channel revoke, there is no retained content-addressed Revision behind a legacy one-shot share.
 
 The legacy endpoint never advances a Channel because it has no base Revision for conflict detection. Publish through `/api/channels/publish` when one stable address should evolve.
 
@@ -76,3 +86,15 @@ The legacy endpoint never advances a Channel because it has no base Revision for
 - Restrict the listening port to the intended private network at the host firewall.
 - Never publish secrets, credentials, private source material, or machine-specific access data.
 - Deleting a browser catalog entry does not delete an already published URL.
+
+## Repeatable remote deployment
+
+Deploy only a reviewed, committed tree. Runtime shares live outside the application directory and survive an atomic upgrade:
+
+```bash
+scripts/deploy-remote \
+  --host USER@INTRANET_HOST \
+  --public-base-url http://INTRANET_HOST:4173
+```
+
+The command archives `HEAD`, runs the full test suite in a staging directory on the target, swaps the application directory, restarts the configured tmux service, and rolls back if the Channel health check fails. It never copies browser data, Bridge tokens, or `~/.helm-shares`.

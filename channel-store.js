@@ -14,6 +14,7 @@
   const REVISION_STORE = 'revisions';
   const SETTINGS_STORE = 'settings';
   const MIGRATION_KEY = 'channelsMigrationV1';
+  const LEGACY_SHARE_NORMALISATION_KEY = 'legacyShareNormalisationV1';
   const STATUSES = new Set(['draft', 'in-review', 'published', 'archived']);
   const CATALOG_FIELDS = new Set(['title', 'type', 'tags', 'summary', 'source', 'project']);
   const ARTIFACT_FIELDS = new Set([
@@ -90,6 +91,27 @@
 
   function normaliseTags(value) {
     return (Array.isArray(value) ? value : []).filter((tag) => typeof tag === 'string').map((tag) => tag.trim()).filter(Boolean);
+  }
+
+  function normaliseMigratedShare(value) {
+    if (!isPlainObject(value)) return null;
+    if (value.kind === 'legacy') return cloneJson(value, 'share');
+    if (safeString(value.stableUrl)) return cloneJson(value, 'share');
+    const legacyUrl = safeString(value.legacyUrl, safeString(value.url));
+    let legacyPath = safeString(value.legacyPath, safeString(value.path));
+    if (!legacyPath && legacyUrl) {
+      try { legacyPath = new URL(legacyUrl, 'http://helm.local').pathname; }
+      catch (_error) { /* Leave malformed historical metadata visible but non-actionable. */ }
+    }
+    if (!legacyUrl && !legacyPath) return cloneJson(value, 'share');
+    return {
+      kind: 'legacy',
+      legacyUrl: legacyUrl || legacyPath,
+      legacyPath: legacyPath || null,
+      sha256: safeString(value.sha256) || null,
+      publishedAt: timestamp(value.publishedAt, null),
+      revokedAt: timestamp(value.revokedAt, null)
+    };
   }
 
   function extraFields(input, knownFields) {
@@ -277,7 +299,7 @@
           status: document.share ? 'published' : 'draft',
           publishedRevisionId
         });
-        const revision = revisionFromInput(document.id, document, hash, { parent: null, now: timestamp(document.updatedAt, new Date().toISOString()), share: document.share });
+        const revision = revisionFromInput(document.id, document, hash, { parent: null, now: timestamp(document.updatedAt, new Date().toISOString()), share: normaliseMigratedShare(document.share) });
         prepared.push({ artifact, revision });
       }
       if (invalidLegacyRecords.length) {
@@ -309,9 +331,28 @@
       return value;
     }
 
+    async function normaliseLegacyShares() {
+      const db = await database();
+      const marker = await requestResult(db.transaction(SETTINGS_STORE, 'readonly').objectStore(SETTINGS_STORE).get(LEGACY_SHARE_NORMALISATION_KEY));
+      if (marker?.value?.complete) return marker.value;
+      const revisions = await getAll(REVISION_STORE);
+      const updates = revisions
+        .map((revision) => ({ revision, share: normaliseMigratedShare(revision.share) }))
+        .filter(({ revision, share }) => JSON.stringify(revision.share) !== JSON.stringify(share));
+      const completedAt = new Date().toISOString();
+      const value = { complete: true, normalisedCount: updates.length, completedAt };
+      const tx = db.transaction([REVISION_STORE, SETTINGS_STORE], 'readwrite');
+      const revisionStore = tx.objectStore(REVISION_STORE);
+      for (const { revision, share } of updates) revisionStore.put({ ...revision, share });
+      tx.objectStore(SETTINGS_STORE).put({ key: LEGACY_SHARE_NORMALISATION_KEY, value });
+      await transactionDone(tx);
+      return value;
+    }
+
     async function open() {
       await database();
       await migrateLegacyDocuments();
+      await normaliseLegacyShares();
       return repository;
     }
 

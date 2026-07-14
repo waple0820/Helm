@@ -1,4 +1,5 @@
 import http.client
+import hashlib
 import json
 import tempfile
 import threading
@@ -7,7 +8,7 @@ from pathlib import Path
 from stat import S_IMODE
 
 from helm_bridge import ContractError
-from helm_share_server import ChannelConflictError, ShareHTTPServer, ShareStore
+from helm_share_server import ChannelConflictError, ChannelNotFoundError, ShareHTTPServer, ShareStore
 
 
 def hdoc(title="Shared report", summary="A report shared on the intranet."):
@@ -30,6 +31,20 @@ class ShareStoreTests(unittest.TestCase):
             self.assertEqual("idempotent", retry["state"])
             self.assertNotEqual(first["filename"], revised["filename"])
             self.assertEqual(hdoc(), store.resolve(first["filename"]).read_bytes())
+
+    def test_legacy_revoke_requires_the_exact_path_and_digest(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = ShareStore(Path(directory))
+            published = store.publish(hdoc())
+            public_path = f'/share/{published["filename"]}'
+            with self.assertRaises(ChannelConflictError):
+                store.revoke_legacy(public_path, "0" * 64)
+            self.assertIsNotNone(store.resolve(published["filename"]))
+            revoked = store.revoke_legacy(public_path, published["sha256"])
+            self.assertEqual("revoked", revoked["state"])
+            self.assertIsNone(store.resolve(published["filename"]))
+            with self.assertRaises(ChannelNotFoundError):
+                store.revoke_legacy("/share/channels.json", published["sha256"])
 
     def test_channel_publish_updates_pointer_without_mutating_revisions(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -181,6 +196,20 @@ class ShareServerTests(unittest.TestCase):
         get_status, headers, body = self.request("GET", published["path"])
         self.assertEqual((200, hdoc()), (get_status, body))
         self.assertIn("immutable", headers["Cache-Control"])
+
+        wrong_status, _, _ = self.request("POST", "/api/share/revoke", {"path": published["path"], "sha256": "0" * 64})
+        self.assertEqual(409, wrong_status)
+        self.assertEqual(200, self.request("GET", published["path"])[0])
+        revoke_status, _, revoke_body = self.request("POST", "/api/share/revoke", {"path": published["path"], "sha256": published["sha256"]})
+        self.assertEqual((200, "revoked"), (revoke_status, json.loads(revoke_body)["state"]))
+        self.assertEqual(404, self.request("GET", published["path"])[0])
+
+    def test_legacy_revoke_rejects_arbitrary_share_root_files(self):
+        channel_file = self.server.store.channel_catalog_path
+        channel_file.write_text("protected", encoding="utf-8")
+        status, _, _ = self.request("POST", "/api/share/revoke", {"path": "/share/channels.json", "sha256": hashlib.sha256(b"protected").hexdigest()})
+        self.assertEqual(404, status)
+        self.assertTrue(channel_file.exists())
 
     def test_owner_catalog_and_path_validation(self):
         (self.root / ".git").mkdir()

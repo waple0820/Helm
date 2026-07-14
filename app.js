@@ -6,6 +6,7 @@ const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
 const MAX_SEARCH_TEXT = 250000;
 const AGENT_BRIDGE_URL = 'http://127.0.0.1:4175';
 const CHANNEL_API_URL = '/api/channels';
+const BUILTIN_CONTENT_VERSION = 2;
 const channelRepository = globalThis.HelmChannelStore?.defaultRepository;
 
 const templates = [
@@ -163,7 +164,13 @@ function manifestFor(artifact) {
   return manifest;
 }
 
-function visualModule(type) {
+function visualModule(artifact) {
+  const type = artifact.type;
+  if (artifact.id === 'welcome-to-helm') {
+    const nodes = [['01', 'Guide', 'read the contract'], ['02', 'Create', 'final HDOC/1.0'], ['03', 'Retain', 'review in Helm']];
+    const node = ([index, label, detail], x) => `<g transform="translate(${x} 20)"><rect width="198" height="110" rx="4"></rect><text class="visual-number" x="16" y="25">${index}</text><text class="visual-label" x="16" y="58">${label}</text><text class="visual-detail" x="16" y="82">${detail}</text></g>`;
+    return `<figure class="visual-figure" aria-labelledby="visual-title-welcome"><div class="visual-heading"><div><p class="visual-kicker">Artifact route</p><h2 id="visual-title-welcome">From an agent task to a durable document</h2></div><p>HELM / ONBOARDING</p></div><svg viewBox="0 0 700 150" role="img" aria-label="Read the Helm guide, create a final HDOC artifact, then retain and review it in Helm"><defs><marker id="arrow-welcome" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z"></path></marker></defs><path class="visual-link" d="M204 75 H244" marker-end="url(#arrow-welcome)"></path><path class="visual-link" d="M438 75 H478" marker-end="url(#arrow-welcome)"></path>${nodes.map((item, index) => node(item, index * 250)).join('')}</svg><figcaption>Agents follow the repository contract; owners inspect the retained Revision, mark it reviewed, and explicitly advance its Channel when it is ready to share.</figcaption><ol class="visual-fallback"><li><b>Guide:</b> read the repository contract.</li><li><b>Create:</b> deliver one final HDOC/1.0 file.</li><li><b>Retain:</b> inspect, review, and publish in Helm.</li></ol></figure>`;
+  }
   const copy = type === 'brief'
     ? { kind: 'Decision map', title: 'Make the chosen option and the reason for it visible', nodes: [['A', 'Option', 'upside'], ['B', 'Recommended', 'evidence'], ['C', 'Alternative', 'trade-off']], note: 'Replace the option names and labels with the actual criteria, evidence date, and reversal condition.' }
     : type === 'reference'
@@ -186,12 +193,15 @@ function articleHtml(artifact, sections = []) {
     return `<section class="report-section ${role}"><div class="section-index">${String(index + 1).padStart(2, '0')}</div><div><h2>${esc(heading)}</h2><p>${esc(text)}</p></div></section>`;
   }).join('');
   const styles = `:root{color-scheme:light;--paper:#f7f6f1;--ink:#1b232c;--muted:#65717a;--line:#d7dad5;--panel:#ecefe9;--accent:#c9543b}*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}main{width:min(980px,calc(100% - 48px));margin:0 auto;padding:34px 0 96px}.topline{display:flex;justify-content:space-between;gap:20px;padding-bottom:18px;border-bottom:1px solid var(--line);color:var(--muted);font:11px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em;text-transform:uppercase}.hero{padding:64px 0 38px;border-bottom:1px solid var(--line)}.eyebrow,.section-index{margin:0 0 13px;color:var(--muted);font:11px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.1em;text-transform:uppercase}.eyebrow{color:var(--accent)}h1,h2{font-family:Georgia,"Times New Roman",serif;font-weight:500;letter-spacing:-.04em}h1{max-width:760px;margin:0;font-size:clamp(42px,7vw,72px);line-height:.98}h2{margin:0;font-size:29px;line-height:1.1}.summary{max-width:700px;margin:22px 0 0;color:#46535d;font-size:20px;line-height:1.55}.meta{display:flex;gap:7px;flex-wrap:wrap;margin-top:23px}.meta span{padding:5px 7px;border:1px solid var(--line);color:var(--muted);font:10px ui-monospace,SFMono-Regular,Menlo,monospace}.visual-figure{margin:0;padding:30px 0;border-bottom:1px solid var(--line)}.visual-heading{display:flex;justify-content:space-between;gap:28px;align-items:start;margin-bottom:18px}.visual-heading h2{max-width:580px;font-size:24px}.visual-heading>p,.visual-kicker{margin:0;color:var(--muted);font:10px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em;text-transform:uppercase}.visual-kicker{margin-bottom:7px;color:var(--accent)}.visual-figure svg{display:block;width:100%;height:auto;border:1px solid var(--line);background:#fbfbf8}.visual-figure rect{fill:var(--paper);stroke:#9eaaa8}.visual-figure .visual-link{fill:none;stroke:var(--accent);stroke-width:2}.visual-figure marker path{fill:var(--accent)}.visual-number{fill:var(--accent);font:11px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em}.visual-label{fill:var(--ink);font:600 17px ui-sans-serif,system-ui,sans-serif}.visual-detail{fill:var(--muted);font:12px ui-monospace,SFMono-Regular,Menlo,monospace}.visual-figure figcaption{max-width:700px;margin:12px 0 0;color:#536168;font-size:13px;line-height:1.55}.visual-fallback{display:none}.reader-path{display:grid;grid-template-columns:160px minmax(0,1fr);gap:28px;margin:30px 0 0;padding:22px 0;border-bottom:1px solid var(--line)}.reader-path p{margin:0;font-family:Georgia,"Times New Roman",serif;font-size:22px;line-height:1.32;letter-spacing:-.02em}.reader-path .section-index{color:var(--accent)}.report-section{display:grid;grid-template-columns:160px minmax(0,1fr);gap:28px;padding:46px 0;border-bottom:1px solid var(--line)}.report-section>div:last-child{max-width:700px}.report-section p{margin:15px 0 0;color:#46535d;font-size:16px;line-height:1.72}.report-section.evidence{background:linear-gradient(90deg,transparent 0,transparent 160px,var(--panel) 160px,var(--panel) 100%);padding-left:18px;padding-right:24px}.report-section.action>div:last-child{padding-left:20px;border-left:3px solid var(--accent)}.source-note{margin:34px 0 0;color:var(--muted);font-size:13px;line-height:1.6}@media(max-width:700px){main{width:min(100% - 32px,980px)}.topline,.visual-heading,.reader-path,.report-section{display:block}.topline span:last-child{display:none}.visual-heading>p{margin-top:10px}.visual-figure svg{display:none}.visual-fallback{display:grid;gap:7px;margin:14px 0 0;padding-left:20px;color:#46535d;font-size:14px;line-height:1.55}.reader-path .section-index,.report-section .section-index{margin-bottom:12px}.report-section.evidence{margin-left:-16px;margin-right:-16px;padding-left:16px;background:var(--panel)}}`;
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="helm:title" content="${esc(artifact.title)}"><meta name="helm:type" content="${esc(artifact.type)}"><meta name="helm:summary" content="${esc(artifact.summary)}"><meta name="helm:tags" content="${esc(artifact.tags.join(', '))}"><title>${esc(artifact.title)}</title><style>${styles}</style><script type="application/json" data-helm-manifest>${manifest}</script></head><body><main data-document-root><div class="topline"><span>${esc(artifact.type)} · HDOC/1.0</span><span>Updated ${esc(artifact.updatedAt.slice(0, 10))}</span></div><header class="hero"><p class="eyebrow">Evidence original · ${esc(artifact.type)}</p><h1>${esc(artifact.title)}</h1><p class="summary">${esc(artifact.summary || 'A personal HTML artifact.')}</p><div class="meta">${artifact.tags.map((tag) => `<span>${esc(tag)}</span>`).join('')}</div></header>${visualModule(artifact.type)}<aside class="reader-path" aria-label="Reader path"><p class="section-index">Reader path</p><p>${esc(readerPath)}</p></aside>${body}<p class="source-note">Before handoff, replace the template visual with actual evidence and add sources, dates, assumptions, and confidence wherever they qualify a factual claim.</p></main></body></html>`;
+  const sourceNote = artifact.id === 'welcome-to-helm'
+    ? 'Helm keeps original HTML immutable by Revision. Catalog metadata may evolve independently; publication always remains an explicit owner action.'
+    : 'Before handoff, replace the template visual with actual evidence and add sources, dates, assumptions, and confidence wherever they qualify a factual claim.';
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="helm:title" content="${esc(artifact.title)}"><meta name="helm:type" content="${esc(artifact.type)}"><meta name="helm:summary" content="${esc(artifact.summary)}"><meta name="helm:tags" content="${esc(artifact.tags.join(', '))}"><title>${esc(artifact.title)}</title><style>${styles}</style><script type="application/json" data-helm-manifest>${manifest}</script></head><body><main data-document-root><div class="topline"><span>${esc(artifact.type)} · HDOC/1.0</span><span>Updated ${esc(artifact.updatedAt.slice(0, 10))}</span></div><header class="hero"><p class="eyebrow">Evidence original · ${esc(artifact.type)}</p><h1>${esc(artifact.title)}</h1><p class="summary">${esc(artifact.summary || 'A personal HTML artifact.')}</p><div class="meta">${artifact.tags.map((tag) => `<span>${esc(tag)}</span>`).join('')}</div></header>${visualModule(artifact)}<aside class="reader-path" aria-label="Reader path"><p class="section-index">Reader path</p><p>${esc(readerPath)}</p></aside>${body}<p class="source-note">${esc(sourceNote)}</p></main></body></html>`;
 }
 
 function seedHtml(artifact) {
   const sections = artifact.id === 'welcome-to-helm'
-    ? [['What belongs here', 'Save the HTML outputs you want to find again: reports, project briefs, notes, dashboards and finished research. The library stores the original file rather than translating it into a database-only format.'], ['How to begin', 'Import an existing HTML file, or use a template to create a compliant starting point. Select any artifact to open it in the safe reader or export the exact source.']]
+    ? [['What belongs here', 'Retain finished HTML outputs that should remain findable and reviewable: reports, project briefs, notes, dashboards, and research. Helm preserves the exact source as an immutable Revision instead of flattening it into app-only content.'], ['Agent handoff', 'Give an agent the repository guide, keep the same manifest ID when revising one logical artifact, and submit the final HDOC/1.0 file once. The owner accepts the incoming Revision before it becomes current.'], ['Review and publish', 'Open the artifact in the safe reader, inspect its contract health, mark the current Revision reviewed, then publish only when its stable Channel should advance. Every published Revision retains a separate immutable address.']]
     : [['Why a contract', 'HTML is a superb final format for AI-assisted work, but a loose file often loses its purpose and provenance. A tiny manifest makes it searchable, auditable and portable.'], ['Use it elsewhere', 'Give another project the Helm document contract before asking it to generate HTML. The result can be imported here without losing its record.']];
   return articleHtml(artifact, sections);
 }
@@ -267,6 +277,15 @@ async function initialise() {
     } else {
       documents = stored;
     }
+    const builtinVersion = Number(await getSetting('builtinContentVersion') || 0);
+    const welcome = documents.find((artifact) => artifact.id === 'welcome-to-helm');
+    if (builtinVersion < BUILTIN_CONTENT_VERSION && welcome?.source === 'Helm' && welcome.html.includes('Template visual · replace before handoff')) {
+      const definition = seedDocuments.find((artifact) => artifact.id === 'welcome-to-helm');
+      const upgraded = enrichArtifact({ ...definition, html: seedHtml(definition) }, { preserveId: true, takenIds: new Set(documents.map((artifact) => artifact.id)) });
+      const saved = await saveDocument(upgraded);
+      documents = documents.map((artifact) => artifact.id === saved.id ? saved : artifact);
+    }
+    await setSetting('builtinContentVersion', BUILTIN_CONTENT_VERSION);
     await loadRequiredLineageSources();
     await setSetting('libraryInitialized', true);
     archiveFolderHandle = await getSetting('archiveFolderHandle');
@@ -348,7 +367,13 @@ function renderLibrary() {
   $('#documentGrid').innerHTML = filtered.map((artifact, index) => {
     const project = projectFor(artifact);
     const state = workflowState(artifact);
-    const published = stableShare(artifact) ? `Published v${revisionNumber(artifact, artifact.publishedRevisionId)}` : artifact.publishedRevisionId ? `Last published v${revisionNumber(artifact, artifact.publishedRevisionId)} · revoked` : 'Not published';
+    const published = stableShare(artifact)
+      ? `Published v${revisionNumber(artifact, artifact.publishedRevisionId)}`
+      : activeLegacyShare(artifact)
+        ? 'Legacy share · live'
+        : legacyShareRecord(artifact)?.revokedAt
+          ? 'Legacy share · retired'
+          : artifact.publishedRevisionId ? `Last published v${revisionNumber(artifact, artifact.publishedRevisionId)} · revoked` : 'Not published';
     return `<article class="document-card ${artifact.id === selectedId ? 'selected' : ''}" data-id="${esc(artifact.id)}" data-type="${esc(artifact.type)}" tabindex="0"><div class="card-top"><span><span class="type-pill ${artifact.id === 'document-contract' ? 'contract-pill' : ''}">${esc(artifact.type.toUpperCase())}</span> <span class="workflow-badge" data-status="${state}">${state.toUpperCase()}</span></span><button class="card-action" type="button" data-open="${esc(artifact.id)}" aria-label="Open ${esc(artifact.title)}">↗</button></div><div class="card-stage" aria-hidden="true"><span class="card-stage-kicker">REV ${String(revisionNumber(artifact)).padStart(2, '0')} / ${esc(artifact.type)}</span><span class="card-stage-mark">${artifact.validation?.valid ? '✓' : '·'}</span><div class="card-stage-lines"><i></i><i></i><i></i></div></div><p class="card-project">PROJECT / ${esc(project.name)}</p><h2>${esc(artifact.title)}</h2><p class="summary">${esc(artifact.summary || 'No summary provided.')}</p><div class="card-bottom"><div class="mini-tags">${artifact.tags.slice(0, 2).map((tag) => `<span class="mini-tag">${esc(tag)}</span>`).join('')}<span class="mini-tag">${esc(published)}</span></div><span class="card-date">${dateLabel(artifact.catalogUpdatedAt || artifact.updatedAt)}</span></div></article>`;
   }).join('');
   $('#emptyState').hidden = Boolean(filtered.length);
@@ -400,6 +425,16 @@ function stableShare(artifact) {
   return share && typeof share.stableUrl === 'string' ? share : null;
 }
 
+function legacyShareRecord(artifact) {
+  const share = publicationShare(artifact);
+  return share?.kind === 'legacy' ? share : null;
+}
+
+function activeLegacyShare(artifact) {
+  const share = legacyShareRecord(artifact);
+  return share && !share.revokedAt && typeof share.legacyUrl === 'string' ? share : null;
+}
+
 function hasChannelIdentity(artifact) {
   const manifestId = artifact?.validation?.manifest?.id || inspectHtml(artifact?.html || '').manifest?.id;
   return typeof manifestId === 'string' && manifestId === artifact?.id;
@@ -423,10 +458,16 @@ function renderInspector() {
   $('#selectedWorkflowStatus').textContent = state.toUpperCase();
   $('#selectedRevisionLabel').textContent = revisionLabel(artifact);
   const share = stableShare(artifact);
+  const legacyShare = activeLegacyShare(artifact);
+  const legacyRecord = legacyShareRecord(artifact);
   const revisionShare = publicationShare(artifact);
   const publishedNumber = artifact.publishedRevisionId ? revisionNumber(artifact, artifact.publishedRevisionId) : null;
   const ahead = Boolean(artifact.publishedRevisionId && artifact.publishedRevisionId !== artifact.currentRevisionId);
-  $('#selectedPublishedState').textContent = publishedNumber ? (!share ? `Revision ${String(publishedNumber).padStart(2, '0')} was last published; stable address revoked.` : ahead ? `Current draft is ahead of published revision ${String(publishedNumber).padStart(2, '0')}.` : `Published revision ${String(publishedNumber).padStart(2, '0')} is current.`) : 'Not published';
+  $('#selectedPublishedState').textContent = legacyShare
+    ? `Legacy immutable share for Revision ${String(publishedNumber || 1).padStart(2, '0')} is still public.`
+    : legacyRecord?.revokedAt
+      ? `Legacy share for Revision ${String(publishedNumber || 1).padStart(2, '0')} was retired.`
+      : publishedNumber ? (!share ? `Revision ${String(publishedNumber).padStart(2, '0')} was last published; stable address revoked.` : ahead ? `Current draft is ahead of published revision ${String(publishedNumber).padStart(2, '0')}.` : `Published revision ${String(publishedNumber).padStart(2, '0')} is current.`) : 'Not published';
   $('#selectedPublishedState').classList.toggle('is-behind', ahead);
   $('#reviewButton').hidden = state === 'published';
   $('#reviewButton').disabled = state === 'reviewed';
@@ -449,16 +490,24 @@ function renderInspector() {
   $('#healthHint').textContent = health.valid ? (warnings.length ? `Contract passed · ${warnings.length} catalog or portability warning${warnings.length === 1 ? '' : 's'}.` : 'No contract errors detected.') : `${errors.length} error${errors.length === 1 ? '' : 's'} · ${warnings.length} warning${warnings.length === 1 ? '' : 's'}`;
   $('#healthIssues').innerHTML = health.issues.slice(0, 3).map((issue) => `<li class="issue-${esc(issue.severity)}">${esc(issue.message)}</li>`).join('');
   $('#repairButton').hidden = health.valid;
-  $('#shareButton').disabled = !health.valid || !hasChannelIdentity(artifact);
-  $('#shareButton').title = hasChannelIdentity(artifact) ? '' : 'A Channel requires the logical Artifact ID to match the embedded HDOC manifest ID.';
-  $('#shareButton').textContent = state === 'published' && share ? 'Copy stable link' : artifact.publishedRevisionId ? 'Publish current revision' : 'Publish stable link';
-  $('#shareRecord').hidden = !share;
-  $('#revokeShareButton').hidden = !share;
-  $('#selectedShare').textContent = share?.stableUrl || '';
-  $('#selectedShare').href = share?.stableUrl || '#';
-  $('#selectedRevisionShare').textContent = revisionShare?.revisionUrl ? `Immutable snapshot: ${revisionShare.revisionUrl}` : 'Published revisions remain available at immutable addresses.';
+  const identityReady = hasChannelIdentity(artifact);
+  $('#shareButton').disabled = !health.valid || !identityReady || state === 'draft' || Boolean(legacyShare);
+  $('#shareButton').title = legacyShare ? 'Retire the legacy one-shot share before publishing this Artifact as a Channel.' : !identityReady ? 'A Channel requires the logical Artifact ID to match the embedded HDOC manifest ID.' : state === 'draft' ? 'Mark this Revision reviewed before publishing.' : !health.valid ? 'Repair the HDOC contract before publishing.' : '';
+  $('#shareButton').textContent = legacyShare ? 'Retire legacy link first' : state === 'draft' ? 'Review before publishing' : state === 'published' && share ? 'Copy stable link' : artifact.publishedRevisionId ? 'Publish current revision' : 'Publish stable link';
+  const visibleShare = share?.stableUrl || legacyShare?.legacyUrl || '';
+  $('#shareRecord').hidden = !visibleShare;
+  $('#shareRecordLabel').textContent = legacyShare ? 'LEGACY IMMUTABLE SHARE' : 'STABLE ADDRESS';
+  $('#revokeShareButton').hidden = !share && !legacyShare;
+  $('#revokeShareButton').textContent = legacyShare ? 'Retire legacy link' : 'Revoke stable address';
+  $('#selectedShare').textContent = visibleShare;
+  if (visibleShare) $('#selectedShare').href = visibleShare;
+  else $('#selectedShare').removeAttribute('href');
+  $('#selectedRevisionShare').textContent = legacyShare ? 'This pre-Channel one-shot file remains public until the owner explicitly retires it.' : revisionShare?.revisionUrl ? `Immutable snapshot: ${revisionShare.revisionUrl}` : 'Published revisions remain available at immutable addresses.';
   $('#lineageRecord').hidden = !artifact.forkedFrom;
   $('#selectedLineage').textContent = artifact.forkedFrom ? `${artifact.forkedFrom.artifactId} · ${artifact.forkedFrom.revisionId.slice(0, 18)}…` : '';
+  const forkNeedsRevision = Boolean(artifact.forkedFrom && !identityReady);
+  $('#forkHandoff').hidden = !forkNeedsRevision;
+  $('#forkArtifactId').textContent = forkNeedsRevision ? artifact.id : '';
 }
 
 function render() { renderCollections(); renderProjects(); renderLibrary(); renderTemplates(); renderInspector(); $('#archiveDocumentCount').textContent = String(documents.length).padStart(2, '0'); renderFolderStatus(); }
@@ -468,6 +517,7 @@ function showView(view) {
   $$('.view').forEach((element) => element.classList.toggle('active-view', element.id === `${view}View`));
   $$('.nav-item').forEach((element) => element.classList.toggle('active', element.dataset.view === view));
   $('#viewTitle').textContent = view === 'library' ? 'Library' : view === 'templates' ? 'Templates' : 'Document contract';
+  $('.app-shell').classList.toggle('without-inspector', view !== 'library');
 }
 
 function showToast(message) {
@@ -953,6 +1003,8 @@ function openReader(id = selectedId) {
   $('#readerTitle').textContent = artifact.title;
   $('#readerRevisionState').dataset.status = workflowState(artifact);
   $('#readerRevisionState').textContent = `v${revisionNumber(artifact)} · ${workflowLabel(artifact)}`;
+  $('#readerShare').disabled = Boolean(activeLegacyShare(artifact)) || workflowState(artifact) === 'draft' || !hasChannelIdentity(artifact) || !(artifact.validation || inspectHtml(artifact.html)).valid;
+  $('#readerShare').title = activeLegacyShare(artifact) ? 'Retire the legacy one-shot share before publishing a Channel.' : workflowState(artifact) === 'draft' ? 'Mark this Revision reviewed before publishing.' : !hasChannelIdentity(artifact) ? 'Create a Revision whose manifest ID matches this Artifact before publishing.' : '';
   $('#readerLoadingTitle').textContent = 'Opening document';
   $('#readerLoadingHint').textContent = 'Preparing preview…';
   loading.hidden = false;
@@ -1035,6 +1087,7 @@ async function markReviewed() {
 
 async function publishDocument(artifact = selectedDocument()) {
   if (!artifact) return;
+  if (activeLegacyShare(artifact)) { showToast('Retire the legacy one-shot link before publishing a stable Channel.'); return; }
   if (!hasChannelIdentity(artifact)) { showToast('Create a new HDOC revision whose manifest ID matches this Artifact before publishing it as a Channel.'); return; }
   if (workflowState(artifact) === 'draft') { showToast('Mark the current revision reviewed before publishing.'); return; }
   const health = artifact.validation || inspectHtml(artifact.html);
@@ -1048,7 +1101,7 @@ async function publishDocument(artifact = selectedDocument()) {
   const buttons = $$('[data-share-action]');
   buttons.forEach((button) => { button.disabled = true; });
   try {
-    const baseRevision = artifact.publishedRevisionId?.replace(/^sha256:/, '') || undefined;
+    const baseRevision = stableShare(artifact) ? artifact.publishedRevisionId?.replace(/^sha256:/, '') : undefined;
     const response = await fetch(`${CHANNEL_API_URL}/publish`, {
       method: 'POST',
       headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
@@ -1077,8 +1130,24 @@ async function publishDocument(artifact = selectedDocument()) {
 async function revokePublication() {
   const artifact = selectedDocument();
   const share = stableShare(artifact);
-  if (!artifact || !share) return;
+  const legacyShare = activeLegacyShare(artifact);
+  if (!artifact || (!share && !legacyShare)) return;
   try {
+    if (legacyShare) {
+      if (!legacyShare.legacyPath || !legacyShare.sha256) throw new Error('Legacy share metadata lacks the exact path and digest required for safe retirement.');
+      const response = await fetch('/api/share/revoke', {
+        method: 'POST',
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: legacyShare.legacyPath, sha256: legacyShare.sha256 })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.message || `Share service returned ${response.status}.`);
+      await channelRepository.revokePublication(artifact.id, artifact.publishedRevisionId, { ...legacyShare, revokedAt: payload.revoked_at || new Date().toISOString() });
+      await refreshArtifact(artifact.id);
+      render();
+      showToast('Legacy one-shot link retired. The library Revision remains unchanged.');
+      return;
+    }
     const base = artifact.publishedRevisionId.replace(/^sha256:/, '');
     const response = await fetch(`${CHANNEL_API_URL}/artifacts/${encodeURIComponent(share.artifactId || artifact.id)}/revoke`, {
       method: 'POST',
@@ -1127,15 +1196,19 @@ function openHistoryDialog(artifact = selectedDocument(), selectedRevisionId = n
   if (!artifact) return;
   const revisions = revisionsFor(artifact);
   const share = stableShare(artifact);
+  const legacyShare = activeLegacyShare(artifact);
   const dialog = $('#historyDialog');
   dialog.dataset.artifactId = artifact.id;
   dialog.dataset.selectedRevisionId = selectedRevisionId || artifact.currentRevisionId;
   $('#historyArtifactIdentity').textContent = `${artifact.id} · ${workflowLabel(artifact).toUpperCase()}`;
   $('#historyArtifactTitle').textContent = artifact.title;
-  $('#historyStableLink').textContent = share?.stableUrl || 'Not published';
-  $('#historyStableLink').href = share?.stableUrl || '#';
+  const visibleShare = share?.stableUrl || legacyShare?.legacyUrl || '';
+  $('#historyAddressLabel').textContent = legacyShare ? 'LEGACY IMMUTABLE SHARE' : 'STABLE ADDRESS';
+  $('#historyStableLink').textContent = visibleShare || (legacyShareRecord(artifact)?.revokedAt ? 'Legacy share retired' : 'Not published');
+  if (visibleShare) $('#historyStableLink').href = visibleShare;
+  else $('#historyStableLink').removeAttribute('href');
   $('#historyStableLink').removeAttribute('aria-disabled');
-  if (!share) $('#historyStableLink').setAttribute('aria-disabled', 'true');
+  if (!visibleShare) $('#historyStableLink').setAttribute('aria-disabled', 'true');
   $('#historyRevisionCount').textContent = String(revisions.length).padStart(2, '0');
   $('#revisionTimeline').innerHTML = revisions.slice().reverse().map((revision) => {
     const current = revision.id === artifact.currentRevisionId;
@@ -1148,6 +1221,11 @@ function openHistoryDialog(artifact = selectedDocument(), selectedRevisionId = n
   const selectedIndex = Math.max(0, revisions.findIndex((revision) => revision.id === dialog.dataset.selectedRevisionId));
   $('#compareTo').value = revisions[selectedIndex]?.id || artifact.currentRevisionId;
   $('#compareFrom').value = revisions[Math.max(0, selectedIndex - 1)]?.id || $('#compareTo').value;
+  const isSingleRevision = revisions.length === 1;
+  $('#compareWorkspace').classList.toggle('is-single-revision', isSingleRevision);
+  $('#compareEyebrow').textContent = isSingleRevision ? 'REVISION PREVIEW' : 'VISUAL COMPARE';
+  $('#compareHeading').textContent = isSingleRevision ? 'First retained Revision' : 'Rendered revision diff';
+  $('#compareNote').textContent = isSingleRevision ? 'There is no earlier Revision to compare yet. This original remains sandboxed and unchanged.' : 'Both revisions render at the same viewport. The original HTML remains sandboxed and unchanged.';
   $$('#revisionTimeline [data-compare-revision]').forEach((button) => button.addEventListener('click', () => {
     dialog.dataset.selectedRevisionId = button.dataset.compareRevision;
     $('#compareTo').value = button.dataset.compareRevision;
@@ -1188,7 +1266,15 @@ async function forkArtifact() {
   selectedId = fork.id;
   if ($('#historyDialog').open) $('#historyDialog').close();
   render();
-  showToast(`Forked ${revisionLabel(source, revisionId)} as a new artifact.`);
+  showToast(`Forked ${revisionLabel(source, revisionId)}. Copy the agent handoff to create its first aligned Revision.`);
+}
+
+async function copyForkHandoff() {
+  const artifact = selectedDocument();
+  if (!artifact?.forkedFrom || hasChannelIdentity(artifact)) return;
+  const prompt = `Continue the Helm fork "${artifact.title}" as Artifact ID "${artifact.id}". Read AI-GUIDE.md, docs/REPORT-DESIGN-STANDARD.md, and docs/HTML-DOCUMENT-SPEC.md. Use the forked Revision as source evidence, produce one finished self-contained HDOC/1.0 HTML file, and set the embedded manifest id exactly to "${artifact.id}". Keep the same ID for later revisions of this logical artifact.`;
+  const copied = await copyText(prompt);
+  showToast(copied ? 'Agent handoff copied.' : 'Could not copy the agent handoff.');
 }
 
 async function openLineage() {
@@ -1356,6 +1442,7 @@ function wireEvents() {
   $('#readerHistory').addEventListener('click', () => openHistoryDialog(readerDocument()));
   $('#forkButton').addEventListener('click', forkArtifact);
   $('#forkArtifactButton').addEventListener('click', forkArtifact);
+  $('#copyForkHandoffButton').addEventListener('click', copyForkHandoff);
   $('#openLineageButton').addEventListener('click', openLineage);
   $('#compareFrom').addEventListener('change', renderVisualDiff);
   $('#compareTo').addEventListener('change', () => { $('#historyDialog').dataset.selectedRevisionId = $('#compareTo').value; renderVisualDiff(); });
