@@ -1,6 +1,6 @@
 # Helm
 
-[![Verify](https://github.com/waple0820/html-displayer/actions/workflows/verify.yml/badge.svg)](https://github.com/waple0820/html-displayer/actions/workflows/verify.yml)
+[![Verify](https://github.com/waple0820/Helm/actions/workflows/verify.yml/badge.svg)](https://github.com/waple0820/Helm/actions/workflows/verify.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-1f6feb.svg)](LICENSE)
 
 <p align="center">
@@ -25,7 +25,7 @@ Helm keeps finished HTML reports, briefs, dashboards, and research as durable pr
 The machine running Helm-aware agents must have outbound Internet access so it can clone or update the repository and let agents reach the external sources used in their reports. The Helm library itself has no third-party runtime dependency and can continue serving retained local artifacts after the repository has been cloned.
 
 ```bash
-git clone https://github.com/waple0820/html-displayer.git
+git clone https://github.com/waple0820/Helm.git
 cd html-displayer
 
 # Browser library + optional read-only intranet sharing service.
