@@ -3,6 +3,10 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+# Helm-local design and generated artifact working files
+assets/drafts/
+/*-current-state-*.html
+
 # C extensions
 *.so
 

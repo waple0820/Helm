@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8">
+  <title>Helm contract smoke test</title>
+  <body>Running contract smoke test…</body>
+  <script src="../validator.js"></script>
+  <script>
+    (async () => {
+      const paths = ['research-dossier.html', 'decision-brief.html', 'reference-note.html', 'agent-handoff.html'];
+      const results = await Promise.all(paths.map(async (path) => {
+        const html = await (await fetch(`../templates/${path}`)).text();
+        return { path, validation: window.HelmValidator.validate(html) };
+      }));
+      const failed = results.filter(({ validation }) => !validation.valid);
+      document.body.dataset.status = failed.length ? 'failed' : 'passed';
+      document.body.textContent = failed.length ? JSON.stringify(failed) : 'passed';
+    })().catch((error) => {
+      document.body.dataset.status = 'failed';
+      document.body.textContent = String(error);
+    });
+  </script>
+</html>
