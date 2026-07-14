@@ -1,0 +1,24 @@
+name: Feature request
+description: Propose a user problem Helm should solve.
+title: "feature: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: User problem
+      description: Describe the recurring outcome that is currently hard, not only a proposed UI control.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed outcome
+      description: Explain the smallest change that would make the problem easier.
+    validations:
+      required: true
+  - type: textarea
+    id: boundaries
+    attributes:
+      label: Trust and durability impact
+      description: Say whether the idea could affect original-file immutability, local-first behavior, explicit owner control, or portability.
