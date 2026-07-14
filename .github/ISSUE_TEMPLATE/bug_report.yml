@@ -1,0 +1,43 @@
+name: Bug report
+description: Report a reproducible problem in the browser library, Bridge, or share service.
+title: "bug: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not attach Bridge tokens, private HTML artifacts, browser-library exports, or machine addresses.
+  - type: textarea
+    id: observed
+    attributes:
+      label: What happened?
+      description: Include the visible result and any non-sensitive error message.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Minimal reproduction
+      description: List the smallest safe steps that reproduce the issue.
+      placeholder: |
+        1. Start Helm with ...
+        2. Open ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Helm commit or version
+      placeholder: main / commit SHA
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Browser library
+        - HDOC document contract
+        - Agent Bridge
+        - Intranet sharing
+        - Backup or folder sync
+        - Documentation
