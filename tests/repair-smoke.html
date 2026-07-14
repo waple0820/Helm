@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8">
+  <title>Helm repair smoke test</title>
+  <body>Running repair smoke test…</body>
+  <script src="../validator.js"></script>
+  <script src="../repair.js"></script>
+  <script>
+    (() => {
+      const originalHtml = '<!doctype html><html><head><title>Unsafe source</title></head><body><main><h1>Unsafe source</h1><p>Readable evidence remains.</p><img src="https://example.com/image.png" alt="Chart summary"><scr' + 'ipt>window.__unsafe = true;</scr' + 'ipt></main></body></html>';
+      const result = window.HelmRepair.createCompliantCopy({ id: 'unsafe-source', title: 'Unsafe source', html: originalHtml }, { now: '2026-07-13T12:00:00.000Z', existingIds: new Set(['unsafe-source']) });
+      const valid = window.HelmValidator.validate(result.record.html).valid;
+      const passed = valid
+        && result.record.html.includes('Readable evidence remains.')
+        && !result.record.html.includes('window.__unsafe')
+        && !result.record.html.includes('https://example.com/image.png')
+        && originalHtml.includes('window.__unsafe');
+      document.body.dataset.status = passed ? 'passed' : 'failed';
+      document.body.textContent = passed ? 'passed' : JSON.stringify({ valid, report: result.report, html: result.record.html });
+    })();
+  </script>
+</html>
