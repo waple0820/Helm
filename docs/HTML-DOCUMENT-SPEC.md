@@ -25,7 +25,7 @@ Any project, agent, or person that generates an HTML artifact for the Helm libra
 - Use the declared `type` to choose the shape: a report answers a question, a brief compares a decision, a reference explains reuse, a dashboard explains the current state and its measures, and a note preserves a finding or handoff.
 - Use a comparison table for alternatives, an evidence route or ledger for claim strength, a timeline or flow for sequence, a diagram for hierarchy, and a labeled chart for magnitude or change. Give every figure a conclusion-led caption, labels/units or boundaries, an evidence state, source or method note, and an adjacent text/table fallback. Do not use visual components as page decoration.
 - Put source, data date, method, assumption, or confidence close to a consequential claim. Images and charts must not be the only carrier of essential information.
-- Do not hide a conclusion, evidence, or caveat behind an interaction. Interactions may clarify or filter; the standalone file must remain readable when printed, exported, or viewed narrowly.
+- Do not hide a conclusion, evidence, or caveat behind an interaction. Interactions may clarify or filter; the standalone file must remain readable when printed, exported, or viewed narrowly. The optional `deep-dive` Profile may use the CSS-only `chapter-reveal` presentation mode, but motion must be progressive enhancement with static reduced-motion, mobile, unsupported-browser, and print behavior.
 
 See [`REPORT-DESIGN-STANDARD.md`](REPORT-DESIGN-STANDARD.md) for type-specific outlines, component guidance, and the delivery self-review.
 

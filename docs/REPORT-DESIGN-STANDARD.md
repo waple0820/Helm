@@ -102,6 +102,8 @@ Helm components are an authoring API, not visual inspiration. Substantial agent-
 
 The registered vocabulary is intentionally small: KPI strip, evidence ledger, comparison matrix, ranked bars, range, sequence, hierarchy, trace, case ledger, and roadmap. Extend it only when none of these grammars can explain the relationship without distortion. `scripts/helm-report check` verifies the declared Claim–component coverage and rejects unfinished placeholders before handoff.
 
+Presentation pacing is separate from evidence grammar. The `deep-dive` Profile wraps existing components in the `chapter-reveal` mode: viewport-sized chapters, a sticky chapter index, and a restrained CSS view-timeline entry effect. Motion never counts as evidence, never replaces a component, and never hides a conclusion or caveat. The baseline is ordinary semantic HTML; narrow screens, printing, browsers without scroll-driven animation, and `prefers-reduced-motion` all receive the complete static report. Do not add mandatory scroll snapping, executable reveal scripts, or canvas-only information.
+
 Use a real screenshot only when the interface itself is evidence. Annotate version/date and sensitive-data treatment. Use generated imagery only for atmosphere or a clearly labelled conceptual metaphor — never as fabricated operational, product, or measurement evidence.
 
 ## Page and component language

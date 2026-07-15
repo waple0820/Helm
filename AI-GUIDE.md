@@ -16,7 +16,7 @@ List the available Profiles and components:
 scripts/helm-report list
 ```
 
-Start from the closest Profile. Profiles supply a useful default composition; `--components` may replace it when the claim inventory requires another grammar.
+Start from the closest Profile. Profiles supply a useful default composition; `--components` may replace it when the claim inventory requires another grammar. Use `deep-dive` when a long, chaptered report benefits from presentation-like pacing: it adds a sticky chapter index and CSS-only scroll entry while keeping every component readable without animation.
 
 ```bash
 scripts/helm-report new \
@@ -47,7 +47,7 @@ Before returning the file, verify that a reader can see the following without in
 5. Provenance for factual claims: source, date, method, assumption, or confidence as appropriate.
 6. Every material relationship has the smallest useful visual treatment — comparison, evidence route, flow, boundary diagram, metric, or range — or an explicit reason it does not need one.
 
-The authoring CLI is the default starting point for substantial artifacts. The files in `templates/` remain compact examples and compatibility starters; use `research`, `benchmark`, `architecture`, `decision`, or `handoff` Profiles when the result needs deliberate visual evidence.
+The authoring CLI is the default starting point for substantial artifacts. The files in `templates/` remain compact examples and compatibility starters; use `research`, `benchmark`, `architecture`, `decision`, `handoff`, or `deep-dive` Profiles when the result needs deliberate visual evidence.
 
 ## Optional automatic handoff to Helm
 

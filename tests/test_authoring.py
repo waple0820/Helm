@@ -22,6 +22,11 @@ class AuthoringKitTests(unittest.TestCase):
         result = self.run_command("check", "authoring/component-gallery.html")
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
         self.assertIn("10 component(s)", result.stdout)
+        source = (ROOT / "authoring" / "component-gallery.html").read_text(encoding="utf-8")
+        self.assertIn('data-helm-layout="chapter-deck"', source)
+        self.assertIn('"mode": "chapter-reveal"', source)
+        self.assertNotIn("<script src=", source)
+        self.assertNotIn("scroll-snap-type", source)
 
     def test_new_profile_is_intentionally_unfinished(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -64,6 +69,29 @@ class AuthoringKitTests(unittest.TestCase):
             self.assertIn('"component": "hierarchy"', source)
             self.assertIn('"component": "sequence"', source)
             self.assertNotIn('"component": "evidence-ledger"', source)
+
+    def test_deep_dive_profile_adds_safe_presentation_pacing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "deep-dive.html"
+            created = self.run_command(
+                "new",
+                "--profile",
+                "deep-dive",
+                "--id",
+                "deep-dive-scaffold",
+                "--output",
+                str(output),
+            )
+            self.assertEqual(0, created.returncode, created.stdout + created.stderr)
+            source = output.read_text(encoding="utf-8")
+            self.assertIn('"profile": "deep-dive"', source)
+            self.assertIn('"mode": "chapter-reveal"', source)
+            self.assertIn('data-helm-layout="chapter-deck"', source)
+            self.assertIn("@supports (animation-timeline:view())", source)
+            self.assertIn("@media(prefers-reduced-motion:reduce)", source)
+            self.assertIn("@media print", source)
+            self.assertNotIn("scroll-snap-type", source)
+            self.assertEqual(1, source.count('<script type="application/json" data-helm-manifest>'))
 
 
 if __name__ == "__main__":

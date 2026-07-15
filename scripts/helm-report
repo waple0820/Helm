@@ -71,6 +71,7 @@ PROFILES = {
     "architecture": ["hierarchy", "sequence", "comparison-matrix", "roadmap"],
     "decision": ["comparison-matrix", "evidence-ledger", "roadmap"],
     "handoff": ["sequence", "evidence-ledger", "roadmap"],
+    "deep-dive": ["kpi-strip", "hierarchy", "comparison-matrix", "trace", "evidence-ledger", "roadmap"],
 }
 
 PROFILE_TYPES = {
@@ -79,11 +80,18 @@ PROFILE_TYPES = {
     "architecture": "reference",
     "decision": "brief",
     "handoff": "note",
+    "deep-dive": "report",
+}
+
+PRESENTATION_MODES = {
+    "standard": "Continuous evidence report with compact chapter spacing.",
+    "chapter-reveal": "Viewport-paced chapters with a sticky index and CSS-only scroll entry; static fallback is always visible.",
 }
 
 STYLES = r"""
 :root{color-scheme:light;--paper:#f1efe8;--raised:#fbfaf5;--ink:#191a18;--soft:#686861;--line:#d6d1c4;--accent:#b64d43;--accent-soft:#ead8d0;--cool:#476b75;--positive:#4f745e;--warning:#9b6f33;--display:Georgia,"Noto Serif SC","Songti SC",serif;--ui:Inter,"Noto Sans SC","PingFang SC",system-ui,sans-serif;--mono:"SFMono-Regular",Consolas,monospace;--reading:46rem;--content:76rem;--stage:92rem}
 *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--ink);background:var(--paper);font-family:var(--ui);line-height:1.65}main{padding:0 24px 96px}.stage{width:min(var(--stage),100%);margin-inline:auto}.content{width:min(var(--content),100%);margin-inline:auto}.reading{width:min(var(--reading),100%);margin-inline:auto}.topline{display:flex;justify-content:space-between;gap:20px;padding:22px 0;border-bottom:1px solid var(--line);color:var(--soft);font:11px var(--mono);letter-spacing:.12em;text-transform:uppercase}.hero{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:56px;align-items:end;padding:92px 0 58px}.eyebrow,.component-label,.state,.meta-label{margin:0;color:var(--accent);font:11px var(--mono);letter-spacing:.12em;text-transform:uppercase}.hero h1{max-width:880px;margin:14px 0 20px;font:500 clamp(48px,8vw,108px)/.94 var(--display);letter-spacing:-.055em}.hero .dek{max-width:780px;margin:0;color:#454943;font:21px/1.55 var(--display)}.hero-facts{margin:0;border-top:1px solid var(--line)}.hero-facts div{display:grid;grid-template-columns:82px 1fr;gap:16px;padding:13px 0;border-bottom:1px solid var(--line)}.hero-facts dt{color:var(--soft);font:10px var(--mono);text-transform:uppercase}.hero-facts dd{margin:0;font-size:13px}.thesis{margin-bottom:42px;padding:28px 30px;border-left:4px solid var(--accent);background:var(--raised)}.thesis p:last-child{max-width:900px;margin:8px 0 0;font:500 clamp(24px,3.3vw,43px)/1.18 var(--display);letter-spacing:-.025em}.reader-path{display:grid;grid-template-columns:180px 1fr;gap:28px;padding:24px 0;border-block:1px solid var(--line)}.reader-path p{margin:0}.reader-path p:last-child{font:24px/1.35 var(--display)}.chapter{padding:76px 0 34px}.chapter-head{display:grid;grid-template-columns:150px minmax(0,1fr);gap:30px;margin-bottom:28px}.chapter-index{color:var(--accent);font:11px var(--mono);letter-spacing:.1em}.chapter-head h2,.component-head h2{margin:0;font:500 clamp(32px,4vw,54px)/1.08 var(--display);letter-spacing:-.035em}.chapter-head p{max-width:680px;margin:14px 0 0;color:var(--soft)}[data-helm-component]{margin:0 0 28px;padding:26px;border:1px solid var(--line);background:var(--raised)}.component-head{display:flex;justify-content:space-between;gap:28px;align-items:flex-start;margin-bottom:22px}.component-head h2{max-width:760px;margin-top:7px;font-size:clamp(25px,3vw,38px)}.component-meta{flex:0 0 190px;text-align:right;color:var(--soft);font:10px/1.55 var(--mono)}.component-meta b{display:block;color:var(--ink);font-weight:500}.component-note,figcaption{max-width:820px;margin:16px 0 0;color:var(--soft);font-size:13px}.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);border-block:1px solid var(--line)}.kpi-grid div{padding:23px 18px;border-right:1px solid var(--line)}.kpi-grid div:last-child{border-right:0}.kpi-grid dt{color:var(--soft);font:10px var(--mono);text-transform:uppercase}.kpi-grid dd{margin:7px 0 0;font:500 38px/1 var(--display);font-variant-numeric:tabular-nums}.kpi-grid small{display:block;margin-top:8px;color:var(--soft);font-size:11px}.table-wrap{overflow-x:auto;border:1px solid var(--line)}table{width:100%;border-collapse:collapse;font-size:13px}caption{padding:13px 15px;text-align:left;color:var(--soft);font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase}th,td{padding:13px 15px;border-top:1px solid var(--line);text-align:left;vertical-align:top}th{color:var(--soft);font:10px var(--mono);letter-spacing:.06em;text-transform:uppercase}td strong{font-weight:650}.pill{display:inline-block;padding:3px 6px;border:1px solid currentColor;color:var(--cool);font:9px var(--mono);text-transform:uppercase}.pill.verified{color:var(--positive)}.pill.proposed{color:var(--warning)}.selected-row{background:color-mix(in srgb,var(--accent-soft) 64%,transparent)}.bars{display:grid;gap:15px}.bar-row{display:grid;grid-template-columns:minmax(130px,210px) minmax(160px,1fr) 72px;gap:14px;align-items:center}.bar-label{font-size:13px}.bar-track{height:18px;background:var(--paper);border-left:1px solid var(--ink)}.bar-fill{display:block;width:var(--value);height:100%;background:var(--cool)}.bar-row:first-child .bar-fill{background:var(--accent)}.bar-value{text-align:right;font:12px var(--mono);font-variant-numeric:tabular-nums}.range-grid{display:grid;gap:18px}.range-row{display:grid;grid-template-columns:120px 1fr 105px;gap:16px;align-items:center}.range-track{position:relative;height:22px;background:linear-gradient(var(--line),var(--line)) center/100% 1px no-repeat}.range-span{position:absolute;top:5px;left:var(--start);width:var(--width);height:12px;background:var(--accent-soft);border-inline:2px solid var(--accent)}.range-dot{position:absolute;top:7px;left:var(--point);width:8px;height:8px;border-radius:50%;background:var(--accent);transform:translateX(-50%)}.range-value{text-align:right;font:11px var(--mono)}.sequence{display:grid;grid-template-columns:repeat(var(--steps,4),1fr);gap:30px;list-style:none;margin:0;padding:0}.sequence li{position:relative;min-height:130px;padding:18px;border:1px solid var(--line);background:var(--paper)}.sequence li:not(:last-child)::after{position:absolute;top:50%;right:-24px;content:"→";color:var(--accent);font:20px var(--mono);transform:translateY(-50%)}.sequence span{color:var(--accent);font:10px var(--mono)}.sequence strong{display:block;margin:15px 0 5px;font:500 20px var(--display)}.sequence small{color:var(--soft)}.tree{display:grid;grid-template-columns:1fr 1.2fr;gap:28px}.tree-root{display:grid;place-items:center;min-height:190px;padding:22px;border:2px solid var(--accent);font:500 26px var(--display);text-align:center}.tree-branches{display:grid;gap:12px}.tree-branches div{padding:17px;border:1px solid var(--line);background:var(--paper)}.tree-branches strong{display:block}.tree-branches small{color:var(--soft)}.trace{display:flex;min-height:82px;border:1px solid var(--line)}.trace span{display:grid;align-content:center;width:var(--value);min-width:90px;padding:12px;border-right:1px solid var(--paper);color:#fff;background:var(--cool)}.trace span:nth-child(2){background:var(--accent)}.trace span:nth-child(3){background:var(--positive)}.trace span:nth-child(4){background:var(--warning)}.trace b,.trace small{display:block}.trace small{font:10px var(--mono);opacity:.82}.case-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.case{padding:18px;border:1px solid var(--line);background:var(--paper)}.case header{display:flex;justify-content:space-between;gap:12px;color:var(--soft);font:10px var(--mono);text-transform:uppercase}.case h3{margin:24px 0 8px;font:500 22px/1.15 var(--display)}.case p{margin:0;color:var(--soft);font-size:13px}.roadmap{display:grid;gap:0;border-top:1px solid var(--line)}.roadmap-row{display:grid;grid-template-columns:70px 1.3fr 1fr 1fr;gap:18px;padding:20px 0;border-bottom:1px solid var(--line)}.roadmap-row>span{color:var(--accent);font:11px var(--mono)}.roadmap-row b{display:block;margin-bottom:4px}.roadmap-row small{color:var(--soft)}.sources{margin-top:72px;padding-top:28px;border-top:1px solid var(--line)}.sources h2{font:500 30px var(--display)}.sources li{margin-bottom:8px;color:var(--soft)}.placeholder{outline:2px dashed var(--warning);outline-offset:4px}@media(max-width:900px){.hero{grid-template-columns:1fr}.hero-facts{max-width:520px}.kpi-grid{grid-template-columns:repeat(2,1fr)}.case-grid{grid-template-columns:1fr 1fr}.sequence{grid-template-columns:1fr 1fr}.sequence li::after{display:none}.roadmap-row{grid-template-columns:55px 1fr}.roadmap-row>div:nth-last-child(-n+2){grid-column:2}}@media(max-width:620px){main{padding-inline:16px}.topline span:last-child{display:none}.hero{padding:58px 0 42px}.hero h1{font-size:48px}.hero .dek{font-size:18px}.reader-path,.chapter-head,.component-head{display:block}.chapter-index,.component-meta{margin-bottom:12px;text-align:left}.chapter{padding-top:54px}[data-helm-component]{padding:18px;margin-inline:-8px}.kpi-grid,.case-grid,.sequence,.tree{grid-template-columns:1fr}.kpi-grid div{border-right:0;border-bottom:1px solid var(--line)}.bar-row,.range-row{grid-template-columns:1fr}.bar-value,.range-value{text-align:left}.trace{display:grid}.trace span{width:100%;min-width:0}.roadmap-row{grid-template-columns:42px 1fr}.table-wrap{margin-inline:-18px}.table-wrap table{min-width:660px}}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}@media print{body{background:#fff}[data-helm-component]{break-inside:avoid}.placeholder{outline:none}}
+.chapter-deck{display:grid;grid-template-columns:150px minmax(0,1fr);gap:30px}.chapter-rail{position:sticky;top:24px;align-self:start;display:grid;gap:8px;padding:18px 0;border-block:1px solid var(--line)}.chapter-rail strong{margin-bottom:5px;color:var(--soft);font:10px var(--mono);letter-spacing:.1em;text-transform:uppercase}.chapter-rail a{color:var(--soft);font:10px/1.35 var(--mono);text-decoration:none}.chapter-rail a:hover,.chapter-rail a:focus-visible{color:var(--accent)}.chapter-slides{min-width:0}.chapter-slide{min-height:min(84svh,820px);display:grid;grid-template-columns:58px minmax(0,1fr);gap:18px;align-items:center;border-top:1px solid var(--line)}.chapter-slide:first-child{border-top:0}.chapter-marker{align-self:start;margin-top:44px;color:var(--accent);font:10px var(--mono);letter-spacing:.08em;writing-mode:vertical-rl}.chapter-slide>[data-helm-component]{width:100%;margin:34px 0}@keyframes helm-chapter-in{from{opacity:.55;transform:translateY(16px)}to{opacity:1;transform:none}}@supports (animation-timeline:view()){.chapter-slide .chapter-marker,.chapter-slide>[data-helm-component]{animation:helm-chapter-in linear both;animation-timeline:view(block);animation-range:entry 0% entry 72%}}@media(max-width:900px){.chapter-deck{grid-template-columns:1fr}.chapter-rail{position:static;grid-template-columns:repeat(3,minmax(0,1fr));border-top:0}.chapter-rail strong{grid-column:1/-1}.chapter-slide{min-height:70svh;grid-template-columns:42px minmax(0,1fr)}}@media(max-width:620px){.chapter-rail{display:none}.chapter-slide{min-height:auto;display:block;padding:38px 0}.chapter-marker{margin:0 0 10px;writing-mode:horizontal-tb}.chapter-slide>[data-helm-component]{margin:0}.chapter-slide .chapter-marker,.chapter-slide>[data-helm-component]{animation:none!important;transform:none!important;opacity:1!important}}@media(prefers-reduced-motion:reduce){.chapter-slide .chapter-marker,.chapter-slide>[data-helm-component]{animation:none!important;transform:none!important;opacity:1!important}}@media print{.chapter-deck,.chapter-slide{display:block}.chapter-rail{display:none}.chapter-slide{min-height:auto;border-top:0;break-inside:auto}.chapter-marker{margin:12px 0;writing-mode:horizontal-tb}.chapter-slide>[data-helm-component]{margin:0 0 28px;animation:none!important;transform:none!important;opacity:1!important}}
 """
 
 
@@ -135,6 +143,7 @@ def build_document(args: argparse.Namespace, *, gallery: bool = False) -> str:
     summary = args.summary or ("A rendered catalog of the visual components agents can compose into portable Helm reports." if gallery else "Replace with the decision-relevant answer this artifact preserves.")
     document_id = args.id or ("helm-component-studio" if gallery else f"replace-{args.profile}-report-id")
     profile = "component-gallery" if gallery else args.profile
+    presentation_mode = "chapter-reveal" if gallery or args.profile == "deep-dive" else "standard"
     claims = [{"id": f"C{index:02d}", "relationship": COMPONENTS[name]["relationship"], "component": name} for index, name in enumerate(names, 1)]
     manifest = {
         "schema_version": "HDOC/1.0",
@@ -147,9 +156,21 @@ def build_document(args: argparse.Namespace, *, gallery: bool = False) -> str:
         "updated_at": now,
         "project": {"id": args.project_id, "name": args.project_name},
         "provenance": {"author": args.author, "sources": []},
-        "presentation": {"profile": profile, "claims": claims},
+        "presentation": {"profile": profile, "mode": presentation_mode, "claims": claims},
     }
-    modules = "\n".join(component_markup(name, claim["id"], gallery=gallery) for name, claim in zip(names, claims))
+    rendered_modules = [component_markup(name, claim["id"], gallery=gallery) for name, claim in zip(names, claims)]
+    if presentation_mode == "chapter-reveal":
+        rail = "".join(
+            f'<a href="#chapter-{claim["id"].lower()}">{claim["id"]} · {esc(name.replace("-", " "))}</a>'
+            for name, claim in zip(names, claims)
+        )
+        slides = "\n".join(
+            f'<section class="chapter-slide" id="chapter-{claim["id"].lower()}" aria-label="Chapter {index}: {esc(name.replace("-", " "))}"><span class="chapter-marker">{index:02d} / {len(names):02d}</span>{module}</section>'
+            for index, (name, claim, module) in enumerate(zip(names, claims, rendered_modules), 1)
+        )
+        modules = f'<div class="chapter-deck" data-helm-layout="chapter-deck"><nav class="chapter-rail" aria-label="Report chapters"><strong>Chapters</strong>{rail}</nav><div class="chapter-slides">{slides}</div></div>'
+    else:
+        modules = "\n".join(rendered_modules)
     placeholder_class = "" if gallery else " placeholder"
     return f'''<!doctype html>
 <html lang="en">
@@ -169,7 +190,7 @@ def build_document(args: argparse.Namespace, *, gallery: bool = False) -> str:
   <div class="stage topline"><span>{esc(profile)} · HDOC/1.0</span><span>Updated {now[:10]}</span></div>
   <header class="stage hero">
     <div><p class="eyebrow">Evidence original · {esc(profile)}</p><h1>{esc(title)}</h1><p class="dek">{esc(summary)}</p></div>
-    <dl class="hero-facts"><div><dt>Profile</dt><dd>{esc(profile)}</dd></div><div><dt>Components</dt><dd>{len(names)} visual modules</dd></div><div><dt>Evidence</dt><dd>{'Rendered specimens' if gallery else 'Replace before handoff'}</dd></div></dl>
+    <dl class="hero-facts"><div><dt>Profile</dt><dd>{esc(profile)}</dd></div><div><dt>Components</dt><dd>{len(names)} visual modules</dd></div><div><dt>Mode</dt><dd>{esc(presentation_mode)}</dd></div><div><dt>Evidence</dt><dd>{'Rendered specimens' if gallery else 'Replace before handoff'}</dd></div></dl>
   </header>
   <section class="content thesis{placeholder_class}" aria-labelledby="short-answer"><p class="component-label">Short answer</p><p id="short-answer">{'Components are useful only when agents can select, compose, and validate them as part of the authoring workflow.' if gallery else 'Replace this sentence with the bounded conclusion a reader should retain.'}</p></section>
   <aside class="content reader-path" aria-label="Reader path"><p class="component-label">Reader path</p><p>Question → short answer → visual evidence → interpretation → action and boundary</p></aside>
@@ -328,13 +349,16 @@ def parser() -> argparse.ArgumentParser:
 def main() -> int:
     args = parser().parse_args()
     if args.command == "list":
-        payload = {"profiles": PROFILES, "components": COMPONENTS}
+        payload = {"profiles": PROFILES, "presentation_modes": PRESENTATION_MODES, "components": COMPONENTS}
         if args.json:
             print(json.dumps(payload, ensure_ascii=False, indent=2))
         else:
             print("PROFILES")
             for name, components in PROFILES.items():
                 print(f"  {name:12} {' → '.join(components)}")
+            print("\nPRESENTATION MODES")
+            for name, description in PRESENTATION_MODES.items():
+                print(f"  {name:18} {description}")
             print("\nCOMPONENTS")
             for name, item in COMPONENTS.items():
                 print(f"  {name:18} {item['relationship']}: {item['description']}")
