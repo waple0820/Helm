@@ -6,6 +6,7 @@ const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
 const MAX_SEARCH_TEXT = 250000;
 const AGENT_BRIDGE_URL = 'http://127.0.0.1:4175';
 const CHANNEL_API_URL = '/api/channels';
+const PUBLIC_CHANNEL_API_URL = '/api/public/channels';
 const BUILTIN_CONTENT_VERSION = 3;
 const MANAGED_WELCOME_REVISION_IDS = new Set([
   // Official v1 Welcome shipped by Helm. User-edited copies have a different
@@ -100,6 +101,61 @@ async function getAll(options = {}) {
   if (!channelRepository) throw new Error('Helm Channels repository is unavailable.');
   const records = await channelRepository.listDocuments(options);
   return Promise.all(records.filter(Boolean).map(async (record) => ({ ...record, revisions: await channelRepository.listRevisions(record.id) })));
+}
+
+async function fetchPublicChannelDocuments(localDocuments = []) {
+  const response = await fetch(PUBLIC_CHANNEL_API_URL, { headers: { Accept: 'application/json' } });
+  if (!response.ok) return [];
+  const payload = await response.json().catch(() => null);
+  if (!Array.isArray(payload?.artifacts)) return [];
+  const localIds = new Set(localDocuments.map((artifact) => artifact.id));
+  const publicRecords = await Promise.all(payload.artifacts.filter((record) => record && !localIds.has(record.id)).map(async (record) => {
+    try {
+      const sourceResponse = await fetch(record.revision_path, { headers: { Accept: 'text/html' } });
+      if (!sourceResponse.ok) return null;
+      const html = await sourceResponse.text();
+      const revisionId = `sha256:${record.sha256}`;
+      const publishedAt = normaliseTimestamp(record.published_at, new Date().toISOString());
+      const updatedAt = normaliseTimestamp(record.updated_at, publishedAt);
+      const share = {
+        artifactId: record.id,
+        stableUrl: record.stable_url,
+        revisionUrl: record.revision_url,
+        sha256: record.sha256,
+        publishedAt
+      };
+      return enrichArtifact({
+        id: record.id,
+        title: record.title,
+        type: record.type,
+        summary: record.summary,
+        tags: record.tags,
+        project: record.project,
+        source: 'Published Helm Channel',
+        updatedAt,
+        html,
+        remotePublication: true,
+        status: 'published',
+        currentRevisionId: revisionId,
+        publishedRevisionId: revisionId,
+        catalogUpdatedAt: updatedAt,
+        revisions: [{
+          id: revisionId,
+          artifactId: record.id,
+          html,
+          contentHash: record.sha256,
+          createdAt: publishedAt,
+          authoredAt: publishedAt,
+          author: 'Published Helm Channel',
+          share
+        }]
+      }, { preserveId: true, takenIds: new Set(localIds) });
+    } catch (error) {
+      console.warn(`Published Channel ${record.id || 'unknown'} could not be loaded.`, error);
+      return null;
+    }
+  }));
+  return publicRecords.filter(Boolean);
 }
 
 async function loadLineageSource(id, seen = new Set()) {
@@ -329,6 +385,11 @@ async function initialise() {
       documents = documents.map((artifact) => artifact.id === saved.id ? saved : artifact);
     }
     await setSetting('builtinContentVersion', BUILTIN_CONTENT_VERSION);
+    const publicDocuments = await fetchPublicChannelDocuments(documents).catch((error) => {
+      console.warn('The public Channel catalog is unavailable.', error);
+      return [];
+    });
+    documents.push(...publicDocuments);
     await loadRequiredLineageSources();
     await setSetting('libraryInitialized', true);
     archiveFolderHandle = await getSetting('archiveFolderHandle');
@@ -411,7 +472,9 @@ function renderLibrary() {
     const project = projectFor(artifact);
     const state = workflowState(artifact);
     const published = stableShare(artifact)
-      ? `Published v${revisionNumber(artifact, artifact.publishedRevisionId)}`
+      ? artifact.remotePublication
+        ? `Public Channel · v${revisionNumber(artifact, artifact.publishedRevisionId)}`
+        : `Published v${revisionNumber(artifact, artifact.publishedRevisionId)}`
       : activeLegacyShare(artifact)
         ? 'Legacy share · live'
         : legacyShareRecord(artifact)?.revokedAt
@@ -497,6 +560,7 @@ function renderInspector() {
   const warnings = health.issues.filter((issue) => issue.severity === 'warning');
   $('#selectedType').textContent = artifact.type.toUpperCase();
   const state = workflowState(artifact);
+  const readOnlyChannel = Boolean(artifact.remotePublication);
   $('#selectedWorkflowStatus').dataset.status = state;
   $('#selectedWorkflowStatus').textContent = state.toUpperCase();
   $('#selectedRevisionLabel').textContent = revisionLabel(artifact);
@@ -512,7 +576,7 @@ function renderInspector() {
       ? `Legacy share for Revision ${String(publishedNumber || 1).padStart(2, '0')} was retired.`
       : publishedNumber ? (!share ? `Revision ${String(publishedNumber).padStart(2, '0')} was last published; stable address revoked.` : ahead ? `Current draft is ahead of published revision ${String(publishedNumber).padStart(2, '0')}.` : `Published revision ${String(publishedNumber).padStart(2, '0')} is current.`) : 'Not published';
   $('#selectedPublishedState').classList.toggle('is-behind', ahead);
-  $('#reviewButton').hidden = state === 'published';
+  $('#reviewButton').hidden = state === 'published' || readOnlyChannel;
   $('#reviewButton').disabled = state === 'reviewed';
   $('#reviewButton').textContent = state === 'draft' ? 'Mark reviewed' : 'Reviewed · ready to publish';
   $('#selectedTitle').textContent = artifact.title;
@@ -532,7 +596,7 @@ function renderInspector() {
   $('#healthScore').textContent = `${health.score ?? 0}`;
   $('#healthHint').textContent = health.valid ? (warnings.length ? `Contract passed · ${warnings.length} catalog or portability warning${warnings.length === 1 ? '' : 's'}.` : 'No contract errors detected.') : `${errors.length} error${errors.length === 1 ? '' : 's'} · ${warnings.length} warning${warnings.length === 1 ? '' : 's'}`;
   $('#healthIssues').innerHTML = health.issues.slice(0, 3).map((issue) => `<li class="issue-${esc(issue.severity)}">${esc(issue.message)}</li>`).join('');
-  $('#repairButton').hidden = health.valid;
+  $('#repairButton').hidden = health.valid || readOnlyChannel;
   const identityReady = hasChannelIdentity(artifact);
   $('#shareButton').disabled = !health.valid || !identityReady || state === 'draft' || Boolean(legacyShare);
   $('#shareButton').title = legacyShare ? 'Retire the legacy one-shot share before publishing this Artifact as a Channel.' : !identityReady ? 'A Channel requires the logical Artifact ID to match the embedded HDOC manifest ID.' : state === 'draft' ? 'Mark this Revision reviewed before publishing.' : !health.valid ? 'Repair the HDOC contract before publishing.' : '';
@@ -540,12 +604,15 @@ function renderInspector() {
   const visibleShare = share?.stableUrl || legacyShare?.legacyUrl || '';
   $('#shareRecord').hidden = !visibleShare;
   $('#shareRecordLabel').textContent = legacyShare ? 'LEGACY IMMUTABLE SHARE' : 'STABLE ADDRESS';
-  $('#revokeShareButton').hidden = !share && !legacyShare;
+  $('#revokeShareButton').hidden = readOnlyChannel || (!share && !legacyShare);
   $('#revokeShareButton').textContent = legacyShare ? 'Retire legacy link' : 'Revoke stable address';
   $('#selectedShare').textContent = visibleShare;
   if (visibleShare) $('#selectedShare').href = visibleShare;
   else $('#selectedShare').removeAttribute('href');
   $('#selectedRevisionShare').textContent = legacyShare ? 'This pre-Channel one-shot file remains public until the owner explicitly retires it.' : revisionShare?.revisionUrl ? `Immutable snapshot: ${revisionShare.revisionUrl}` : 'Published revisions remain available at immutable addresses.';
+  $('#editMetadataButton').hidden = readOnlyChannel;
+  $('#deleteButton').hidden = readOnlyChannel;
+  $('#forkButton').hidden = readOnlyChannel;
   $('#lineageRecord').hidden = !artifact.forkedFrom;
   $('#selectedLineage').textContent = artifact.forkedFrom ? `${artifact.forkedFrom.artifactId} · ${artifact.forkedFrom.revisionId.slice(0, 18)}…` : '';
   const forkNeedsRevision = Boolean(artifact.forkedFrom && !identityReady);
@@ -553,7 +620,7 @@ function renderInspector() {
   $('#forkArtifactId').textContent = forkNeedsRevision ? artifact.id : '';
 }
 
-function render() { renderCollections(); renderProjects(); renderLibrary(); renderTemplates(); renderInspector(); $('#archiveDocumentCount').textContent = String(documents.length).padStart(2, '0'); renderFolderStatus(); }
+function render() { renderCollections(); renderProjects(); renderLibrary(); renderTemplates(); renderInspector(); $('#archiveDocumentCount').textContent = String(documents.filter((artifact) => !artifact.remotePublication).length).padStart(2, '0'); renderFolderStatus(); }
 function selectDocument(id) { selectedId = id; renderLibrary(); renderInspector(); }
 
 function showView(view) {
@@ -796,7 +863,7 @@ async function syncArchiveFolder() {
     folderReplaceArmed = false;
     button.textContent = 'Sync now';
     await setSetting('lastFolderSyncAt', new Date().toISOString());
-    showToast(`${documents.length} artifacts synced to the selected folder.`);
+    showToast(`${archiveRecords().length} artifacts synced to the selected folder.`);
   } catch (error) {
     console.error(error);
     showToast('Folder sync did not finish. Existing folder data was left available for recovery.');
@@ -1046,6 +1113,7 @@ function openReader(id = selectedId) {
   readerArtifactId = artifact.id;
   clearTimeout(readerSlowTimer);
   $('#readerTitle').textContent = artifact.title;
+  $('#forkArtifactButton').hidden = Boolean(artifact.remotePublication);
   $('#readerRevisionState').dataset.status = workflowState(artifact);
   $('#readerRevisionState').textContent = `v${revisionNumber(artifact)} · ${workflowLabel(artifact)}`;
   $('#readerShare').disabled = Boolean(activeLegacyShare(artifact)) || workflowState(artifact) === 'draft' || !hasChannelIdentity(artifact) || !(artifact.validation || inspectHtml(artifact.html)).valid;
@@ -1332,7 +1400,7 @@ async function openLineage() {
 }
 
 function archiveRecords() {
-  const records = new Map([...lineageSources.values(), ...documents].map((artifact) => [artifact.id, artifact]));
+  const records = new Map([...lineageSources.values(), ...documents.filter((artifact) => !artifact.remotePublication)].map((artifact) => [artifact.id, artifact]));
   return [...records.values()].map(({ contentText, validation, ...record }) => record);
 }
 
@@ -1457,7 +1525,7 @@ function wireEvents() {
   $$('[data-close-agent-inbox]').forEach((button) => button.addEventListener('click', () => $('#agentInboxDialog').close()));
   $('[data-empty-import]').addEventListener('click', () => $('#fileInput').click());
   $('#fileInput').addEventListener('change', async (event) => { await importFiles(event.target.files); event.target.value = ''; });
-  $('#archiveButton').addEventListener('click', async () => { $('#archiveDocumentCount').textContent = String(documents.length).padStart(2, '0'); await renderFolderStatus(); $('#archiveDialog').showModal(); });
+  $('#archiveButton').addEventListener('click', async () => { $('#archiveDocumentCount').textContent = String(archiveRecords().length).padStart(2, '0'); await renderFolderStatus(); $('#archiveDialog').showModal(); });
   $('#archiveExportButton').addEventListener('click', exportArchive);
   $('#archiveImportButton').addEventListener('click', () => $('#archiveInput').click());
   $('#archiveInput').addEventListener('change', async (event) => { if (event.target.files[0]) await importArchiveFile(event.target.files[0]); event.target.value = ''; });

@@ -233,6 +233,35 @@ class ShareStore:
         with self.lock:
             return [dict(record) for record in self.channel_catalog["artifacts"].values()]
 
+    def public_artifacts(self, public_base_url: str) -> list[dict[str, Any]]:
+        """Return the minimal read-only catalog needed by the public Helm library."""
+        base = public_base_url.rstrip("/")
+        with self.lock:
+            records = []
+            for artifact in self.channel_catalog["artifacts"].values():
+                if artifact.get("status") != "published":
+                    continue
+                artifact_id = artifact["id"]
+                digest = artifact["current_revision"]
+                stable_path = f"/a/{quote(artifact_id)}"
+                revision_path = f"/r/{digest}.html"
+                records.append({
+                    "id": artifact_id,
+                    "title": artifact["title"],
+                    "type": artifact["type"],
+                    "summary": artifact["summary"],
+                    "tags": list(artifact.get("tags", [])),
+                    **({"project": dict(artifact["project"])} if isinstance(artifact.get("project"), dict) else {}),
+                    "sha256": digest,
+                    "published_at": artifact["published_at"],
+                    "updated_at": artifact["updated_at"],
+                    "stable_path": stable_path,
+                    "stable_url": f"{base}{stable_path}",
+                    "revision_path": revision_path,
+                    "revision_url": f"{base}{revision_path}",
+                })
+            return sorted(records, key=lambda record: record["updated_at"], reverse=True)
+
     def resolve_artifact(self, artifact_id: str) -> tuple[str, Path] | None:
         record = self.artifact(artifact_id)
         if not record:
@@ -393,6 +422,9 @@ class ShareRequestHandler(SimpleHTTPRequestHandler):
         path = urlparse(self.path).path
         if path == "/api/share/health":
             self._send_json(HTTPStatus.OK, {"ok": True, "api_version": API_VERSION, "channel_api_version": CHANNEL_API_VERSION, "public_base_url": self.server.public_base_url})
+            return
+        if path == "/api/public/channels":
+            self._send_json(HTTPStatus.OK, {"ok": True, "artifacts": self.server.store.public_artifacts(self.server.public_base_url)})
             return
         if path == "/api/channels":
             if self._owner_request():

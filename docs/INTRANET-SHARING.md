@@ -1,6 +1,6 @@
 # Helm Channels and intranet sharing
 
-Helm keeps the personal browser library private. Publishing copies only an explicitly selected, validated HDOC document into the share service. Network visitors can read published pages but cannot browse the library or change a Channel.
+Helm keeps each owner's browser library private. Publishing copies only an explicitly selected, validated HDOC document into the share service. The hosted Helm homepage lists published Channels as a read-only public library; network visitors cannot see drafts, archived browser records, owner metadata, or change a Channel.
 
 The browser publishes only when the logical Artifact ID equals the embedded HDOC manifest ID. Catalog copies and newly created Forks therefore cannot accidentally advance the source Artifact's Channel; a Fork first needs an explicitly authored HDOC Revision with its own matching identity.
 
@@ -58,6 +58,8 @@ Content-Type: application/json
 ```
 
 Owner-only `GET /api/channels` and `GET /api/channels/artifacts/<artifact-id>` expose publication records for management UI. They are not an intranet directory.
+
+`GET /api/public/channels` exposes only the minimal metadata and stable/immutable URLs for currently published Channels. Revoked Channels and internal revision history are omitted. The hosted homepage uses this endpoint to render the public library without copying records into a visitor's IndexedDB.
 
 ## Legacy one-shot shares
 

@@ -243,6 +243,22 @@ class ShareServerTests(unittest.TestCase):
         self.assertEqual(404, self.request("GET", "/shares/channels.json")[0])
         self.assertEqual(404, self.request("GET", "/shares/revisions/")[0])
 
+    def test_public_catalog_lists_only_live_channels_without_owner_auth(self):
+        _, _, created = self.publish_channel()
+        status, _, body = self.request("GET", "/api/public/channels")
+        payload = json.loads(body)
+        self.assertEqual(200, status)
+        self.assertEqual(1, len(payload["artifacts"]))
+        record = payload["artifacts"][0]
+        self.assertEqual("shared-report", record["id"])
+        self.assertEqual("http://example.test/a/shared-report", record["stable_url"])
+        self.assertEqual(created["sha256"], record["sha256"])
+        self.assertNotIn("revisions", record)
+
+        self.request("POST", "/api/channels/artifacts/shared-report/revoke", {"base_revision_sha256": created["sha256"]})
+        status, _, body = self.request("GET", "/api/public/channels")
+        self.assertEqual((200, []), (status, json.loads(body)["artifacts"]))
+
 
 if __name__ == "__main__":
     unittest.main()
