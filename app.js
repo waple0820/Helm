@@ -393,7 +393,7 @@ async function initialise() {
     await loadRequiredLineageSources();
     await setSetting('libraryInitialized', true);
     archiveFolderHandle = await getSetting('archiveFolderHandle');
-    selectedId = documents[0]?.id || null;
+    selectedId = null;
     render();
     void refreshAgentInboxBadge();
   } catch (error) {
@@ -432,7 +432,7 @@ function renderProjects() {
     activeProject = button.dataset.project;
     activeFilter = 'all';
     $('#searchInput').value = '';
-    $$('.filter').forEach((filter) => filter.classList.toggle('active', filter.dataset.filter === 'all'));
+    $('#typeFilter').value = 'all';
     showView('library');
     render();
   }));
@@ -444,7 +444,7 @@ function renderLibrary() {
   const activeType = activeFilter === 'all' ? 'All artifacts' : `${activeFilter[0].toUpperCase()}${activeFilter.slice(1)}s`;
   const selectedProject = activeProject === 'all' ? null : knownProjects().find((project) => project.id === activeProject);
   const lenses = [selectedProject ? `Project: ${selectedProject.name}` : null, activeFilter !== 'all' ? activeType : null, query ? `Search: “${query.length > 22 ? `${query.slice(0, 22)}…` : query}”` : null].filter(Boolean);
-  const filterState = `· ${lenses.join(' · ') || activeType}`;
+  const filterState = lenses.join(' · ') || activeType;
   const hasActiveLens = Boolean(query) || activeFilter !== 'all' || activeProject !== 'all';
   const readyCount = documents.filter((artifact) => artifact.validation?.valid).length;
   const projectCount = new Set(documents.map((artifact) => projectFor(artifact).id).filter((id) => id !== UNASSIGNED_PROJECT.id)).size;
@@ -458,16 +458,8 @@ function renderLibrary() {
   $('#documentGrid').innerHTML = filtered.map((artifact, index) => {
     const project = projectFor(artifact);
     const state = workflowState(artifact);
-    const published = stableShare(artifact)
-      ? artifact.remotePublication
-        ? `Public Channel · v${revisionNumber(artifact, artifact.publishedRevisionId)}`
-        : `Published v${revisionNumber(artifact, artifact.publishedRevisionId)}`
-      : activeLegacyShare(artifact)
-        ? 'Legacy share · live'
-        : legacyShareRecord(artifact)?.revokedAt
-          ? 'Legacy share · retired'
-          : artifact.publishedRevisionId ? `Last published v${revisionNumber(artifact, artifact.publishedRevisionId)} · revoked` : 'Not published';
-    return `<article class="document-card ${artifact.id === selectedId ? 'selected' : ''}" data-id="${esc(artifact.id)}" data-type="${esc(artifact.type)}" tabindex="0"><div class="card-top"><span><span class="type-pill ${artifact.id === 'document-contract' ? 'contract-pill' : ''}">${esc(artifact.type.toUpperCase())}</span> <span class="workflow-badge" data-status="${state}">${state.toUpperCase()}</span></span><button class="card-action" type="button" data-open="${esc(artifact.id)}" aria-label="Open ${esc(artifact.title)}">↗</button></div><div class="card-stage" aria-hidden="true"><span class="card-stage-kicker">REV ${String(revisionNumber(artifact)).padStart(2, '0')} / ${esc(artifact.type)}</span><span class="card-stage-mark">${artifact.validation?.valid ? '✓' : '·'}</span><div class="card-stage-lines"><i></i><i></i><i></i></div></div><p class="card-project">PROJECT / ${esc(project.name)}</p><h2>${esc(artifact.title)}</h2><p class="summary">${esc(artifact.summary || 'No summary provided.')}</p><div class="card-bottom"><div class="mini-tags">${artifact.tags.slice(0, 2).map((tag) => `<span class="mini-tag">${esc(tag)}</span>`).join('')}<span class="mini-tag">${esc(published)}</span></div><span class="card-date">${dateLabel(artifact.catalogUpdatedAt || artifact.updatedAt)}</span></div></article>`;
+    const conciseState = stableShare(artifact) ? 'Published' : state === 'reviewed' ? 'Reviewed' : 'Draft';
+    return `<article class="document-card ${artifact.id === selectedId ? 'selected' : ''}" data-id="${esc(artifact.id)}" data-type="${esc(artifact.type)}" tabindex="0"><div class="card-top"><span class="workflow-badge" data-status="${state}">${conciseState.toUpperCase()}</span><button class="card-action" type="button" data-open="${esc(artifact.id)}" aria-label="Open ${esc(artifact.title)}">↗</button></div><p class="card-project">${esc(project.name)}</p><h2>${esc(artifact.title)}</h2><p class="summary">${esc(artifact.summary || 'No summary provided.')}</p><div class="card-bottom"><span>${esc(artifact.type)}</span><span class="card-date">Updated ${dateLabel(artifact.catalogUpdatedAt || artifact.updatedAt)}</span></div></article>`;
   }).join('');
   $('#emptyState').hidden = Boolean(filtered.length);
   $$('.document-card').forEach((card) => {
@@ -539,6 +531,7 @@ function revisionLabel(artifact, revisionId = artifact?.currentRevisionId) {
 
 function renderInspector() {
   const artifact = documents.find((item) => item.id === selectedId);
+  $('.app-shell').classList.toggle('without-inspector', !artifact || !$('#libraryView').classList.contains('active-view'));
   $('#inspectorEmpty').hidden = Boolean(artifact);
   $('#inspectorContent').hidden = !artifact;
   if (!artifact) return;
@@ -614,7 +607,7 @@ function showView(view) {
   $$('.view').forEach((element) => element.classList.toggle('active-view', element.id === `${view}View`));
   $$('.nav-item').forEach((element) => element.classList.toggle('active', element.dataset.view === view));
   $('#viewTitle').textContent = view === 'library' ? 'Library' : view === 'templates' ? 'Templates' : 'Document contract';
-  $('.app-shell').classList.toggle('without-inspector', view !== 'library');
+  $('.app-shell').classList.toggle('without-inspector', view !== 'library' || !selectedDocument());
 }
 
 function showToast(message) {
@@ -1498,7 +1491,7 @@ async function deleteSelected() {
   await removeDocument(artifact.id, { hard: !hasForks });
   if (hasForks) lineageSources.set(artifact.id, artifact);
   documents = documents.filter((item) => item.id !== artifact.id);
-  selectedId = documents[0]?.id || null;
+  selectedId = null;
   render();
   showToast(hasForks ? 'Artifact archived so existing Fork lineage remains verifiable.' : 'Artifact removed from this browser.');
 }
@@ -1523,8 +1516,8 @@ function wireEvents() {
   $('#templateButton').addEventListener('click', () => openCreateDialog(templates[0]));
   $('#readContract').addEventListener('click', () => showView('contract'));
   $$('.nav-item').forEach((button) => button.addEventListener('click', () => showView(button.dataset.view)));
-  $$('.filter').forEach((button) => button.addEventListener('click', () => { activeFilter = button.dataset.filter; $$('.filter').forEach((filter) => filter.classList.toggle('active', filter === button)); renderLibrary(); }));
-  $('#clearLibraryFilters').addEventListener('click', () => { activeFilter = 'all'; activeProject = 'all'; $('#searchInput').value = ''; $$('.filter').forEach((filter) => filter.classList.toggle('active', filter.dataset.filter === 'all')); render(); });
+  $('#typeFilter').addEventListener('change', (event) => { activeFilter = event.target.value; renderLibrary(); });
+  $('#clearLibraryFilters').addEventListener('click', () => { activeFilter = 'all'; activeProject = 'all'; $('#searchInput').value = ''; $('#typeFilter').value = 'all'; render(); });
   $('#searchInput').addEventListener('input', renderLibrary);
   $('#sortSelect').addEventListener('change', renderLibrary);
   $$('[data-close-create]').forEach((button) => button.addEventListener('click', () => $('#createDialog').close()));

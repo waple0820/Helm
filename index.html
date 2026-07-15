@@ -49,14 +49,19 @@
               <span>⌕</span><input id="searchInput" type="search" placeholder="Search every artifact" autocomplete="off" />
               <kbd>⌘ K</kbd>
             </label>
-            <div class="appearance-control" role="group" aria-label="Appearance">
-              <button type="button" data-theme-mode="light" aria-pressed="false" title="Use light appearance">Light</button>
-              <button type="button" data-theme-mode="dark" aria-pressed="false" title="Use dark appearance">Dark</button>
-              <button type="button" data-theme-mode="system" aria-pressed="true" title="Follow system appearance">System</button>
-            </div>
-            <button class="button button-quiet agent-inbox-button" id="agentInboxButton" type="button"><span>◌</span> Agent inbox <b id="agentInboxCount" hidden>0</b></button>
-            <button class="button button-quiet" id="archiveButton" type="button"><span>⇩</span> Archive backup</button>
-            <button class="button button-quiet" id="templateButton" type="button"><span>◇</span> New from template</button>
+            <details class="action-menu">
+              <summary aria-label="More actions">More <span>⌄</span></summary>
+              <div class="action-menu-panel">
+                <div class="appearance-control" role="group" aria-label="Appearance">
+                  <button type="button" data-theme-mode="light" aria-pressed="false" title="Use light appearance">Light</button>
+                  <button type="button" data-theme-mode="dark" aria-pressed="false" title="Use dark appearance">Dark</button>
+                  <button type="button" data-theme-mode="system" aria-pressed="true" title="Follow system appearance">System</button>
+                </div>
+                <button class="action-menu-item agent-inbox-button" id="agentInboxButton" type="button"><span>◌</span><span>Agent inbox</span><b id="agentInboxCount" hidden>0</b></button>
+                <button class="action-menu-item" id="archiveButton" type="button"><span>⇩</span><span>Archive backup</span></button>
+                <button class="action-menu-item" id="templateButton" type="button"><span>◇</span><span>New from template</span></button>
+              </div>
+            </details>
             <button class="button button-primary" id="importButton" type="button"><span>＋</span> Import HTML</button>
             <input id="fileInput" type="file" accept="text/html,.html,.htm" multiple hidden />
             <input id="archiveInput" type="file" accept="application/json,.json,.helm-archive" hidden />
@@ -68,33 +73,18 @@
             <div>
               <p class="eyebrow">PERSONAL HTML LIBRARY</p>
               <h1>Documents, not loose files.</h1>
-              <p class="lede">Keep AI-produced HTML as searchable, inspectable, portable artifacts.</p>
+              <p class="lede">A curated home for the HTML worth keeping.</p>
+              <p class="library-facts"><strong id="documentCount">00</strong> artifacts <i></i><strong id="librarySourceCount">00</strong> projects <i></i><strong id="contractReadyCount">00</strong> HDOC ready <button id="readContract" type="button">Contract →</button></p>
             </div>
-            <div class="storage-stat"><span id="documentCount">00</span><small>ARTIFACTS<br />IN LIBRARY</small></div>
           </div>
 
-          <section class="protocol-card">
-            <div class="protocol-index">01</div>
-            <div class="protocol-copy"><p class="eyebrow">PORTABLE BY CONTRACT <span class="quiet-status"><i></i> LOCAL LIBRARY</span></p><h2>Every artifact can carry its own context.</h2><p>Use the Helm manifest to preserve title, provenance, tags and rendering intent wherever an HTML file travels.</p></div>
-            <div class="protocol-rail">
-              <div class="protocol-stats" aria-label="Library health"><div><strong id="contractReadyCount">00</strong><span>HDOC ready</span></div><div><strong id="librarySourceCount">00</strong><span>projects</span></div></div>
-              <button class="outline-button" id="readContract" type="button">Read the contract <span>→</span></button>
-            </div>
-          </section>
-
           <div class="library-toolbar">
-            <div class="filter-zone">
-              <div class="toolbar-overline"><span>FILTER ARTIFACTS</span><span><strong id="libraryVisibleCount">00</strong> shown <i id="libraryFilterState">· All artifacts</i></span></div>
-              <div class="filter-tabs" id="filterTabs">
-                <button class="filter active" type="button" data-filter="all">All artifacts</button>
-                <button class="filter" type="button" data-filter="report">Reports</button>
-                <button class="filter" type="button" data-filter="brief">Briefs</button>
-                <button class="filter" type="button" data-filter="reference">Reference</button>
-                <button class="filter" type="button" data-filter="dashboard">Dashboards</button>
-                <button class="filter" type="button" data-filter="note">Notes</button>
-              </div>
+            <span class="library-result"><strong id="libraryVisibleCount">00</strong> shown <i id="libraryFilterState">All artifacts</i></span>
+            <div class="toolbar-actions">
+              <label class="sort-select">TYPE <select id="typeFilter"><option value="all">All</option><option value="report">Reports</option><option value="brief">Briefs</option><option value="reference">Reference</option><option value="dashboard">Dashboards</option><option value="note">Notes</option></select></label>
+              <label class="sort-select">SORT <select id="sortSelect"><option value="updated">Recently updated</option><option value="created">Recently created</option><option value="title">Title A–Z</option></select></label>
+              <button class="clear-filter-button" id="clearLibraryFilters" type="button" hidden>Clear <span>×</span></button>
             </div>
-            <div class="toolbar-actions"><button class="clear-filter-button" id="clearLibraryFilters" type="button" hidden>Clear filters <span>×</span></button><label class="sort-select">SORT <select id="sortSelect"><option value="updated">Recently updated</option><option value="created">Recently created</option><option value="title">Title A–Z</option></select></label></div>
           </div>
 
           <div class="document-grid" id="documentGrid" aria-live="polite"></div>
@@ -147,27 +137,32 @@
         <div class="inspector-content" id="inspectorContent" hidden>
           <div class="inspector-top"><div class="inspector-badges"><span class="type-pill" id="selectedType">REPORT</span><span class="workflow-badge" id="selectedWorkflowStatus" data-status="draft">DRAFT</span></div><button id="closeInspector" type="button" aria-label="Close inspector">×</button></div>
           <h2 id="selectedTitle"></h2><p class="inspector-summary" id="selectedSummary"></p>
-          <div class="tag-list" id="selectedTags"></div>
           <section class="revision-state" aria-labelledby="revisionStateTitle">
             <div class="revision-state-heading"><span id="revisionStateTitle">CURRENT REVISION</span><strong id="selectedRevisionLabel">Revision 01</strong></div>
             <p id="selectedPublishedState">Not published</p>
             <div class="revision-state-actions"><button class="text-button" id="reviewButton" type="button">Mark reviewed</button><button class="text-button" id="historyButton" type="button">History &amp; compare <span>→</span></button></div>
           </section>
-          <dl class="metadata"><div><dt>PROJECT</dt><dd id="selectedProject"></dd></div><div><dt>CATALOG UPDATED</dt><dd id="selectedUpdated"></dd></div><div><dt>SOURCE</dt><dd id="selectedSource"></dd></div><div><dt>IDENTITY</dt><dd id="selectedIdentity"></dd></div><div><dt>FORMAT</dt><dd id="selectedFormat"></dd></div><div><dt>SIZE</dt><dd id="selectedSize"></dd></div></dl>
           <div class="inspector-actions"><button class="button button-primary" id="previewButton" type="button">Open reader <span>↗</span></button><button class="button button-quiet" id="exportButton" type="button">Export .html</button></div>
           <button class="button button-quiet share-button" id="shareButton" data-share-action type="button">Publish intranet link</button>
           <div class="share-record stable-address" id="shareRecord" hidden><span id="shareRecordLabel">STABLE ADDRESS</span><a id="selectedShare" target="_blank" rel="noopener noreferrer"></a><small id="selectedRevisionShare">Published revisions remain available at their immutable addresses.</small></div>
           <button class="text-button revoke-channel-button" id="revokeShareButton" type="button" hidden>Revoke stable address</button>
           <section class="lineage-record" id="lineageRecord" hidden aria-labelledby="lineageTitle"><span id="lineageTitle">LINEAGE</span><p>Forked from <a id="selectedLineage" href="#"></a></p><button class="text-button" id="openLineageButton" type="button">Open source revision <span>↗</span></button></section>
           <section class="fork-handoff" id="forkHandoff" hidden aria-labelledby="forkHandoffTitle"><span id="forkHandoffTitle">CONTINUE THIS FORK</span><p>The copied Revision is evidence, not yet a publishable Channel. Ask an agent to create a final HDOC Revision whose manifest ID is <code id="forkArtifactId"></code>.</p><button class="button button-quiet" id="copyForkHandoffButton" type="button">Copy agent handoff</button></section>
-          <button class="button button-quiet fork-button" id="forkButton" type="button">Fork current revision</button>
-          <button class="button button-quiet catalog-button" id="editMetadataButton" type="button">Edit catalog metadata</button>
-          <div class="inspector-divider"></div>
-          <div class="quality-row"><span class="quality-dot" id="manifestDot"></span><div><b id="manifestStatus">Metadata inspection</b><small id="manifestHint"></small></div></div>
-          <div class="health-summary"><strong id="healthScore">--</strong><div><b>Artifact health</b><small id="healthHint">Checking portable structure…</small></div></div>
-          <ul class="health-issues" id="healthIssues"></ul>
-          <button class="button button-quiet repair-button" id="repairButton" type="button" hidden>Create compliant copy</button>
-          <button class="danger-button" id="deleteButton" type="button">Remove from this browser</button>
+          <details class="inspector-disclosure">
+            <summary>Artifact details <span>＋</span></summary>
+            <div class="tag-list" id="selectedTags"></div>
+            <dl class="metadata"><div><dt>PROJECT</dt><dd id="selectedProject"></dd></div><div><dt>UPDATED</dt><dd id="selectedUpdated"></dd></div><div><dt>SOURCE</dt><dd id="selectedSource"></dd></div><div><dt>IDENTITY</dt><dd id="selectedIdentity"></dd></div><div><dt>FORMAT</dt><dd id="selectedFormat"></dd></div><div><dt>SIZE</dt><dd id="selectedSize"></dd></div></dl>
+          </details>
+          <details class="inspector-disclosure">
+            <summary>Manage &amp; health <span>＋</span></summary>
+            <button class="button button-quiet fork-button" id="forkButton" type="button">Fork current revision</button>
+            <button class="button button-quiet catalog-button" id="editMetadataButton" type="button">Edit catalog metadata</button>
+            <div class="quality-row"><span class="quality-dot" id="manifestDot"></span><div><b id="manifestStatus">Metadata inspection</b><small id="manifestHint"></small></div></div>
+            <div class="health-summary"><strong id="healthScore">--</strong><div><b>Artifact health</b><small id="healthHint">Checking portable structure…</small></div></div>
+            <ul class="health-issues" id="healthIssues"></ul>
+            <button class="button button-quiet repair-button" id="repairButton" type="button" hidden>Create compliant copy</button>
+            <button class="danger-button" id="deleteButton" type="button">Remove from this browser</button>
+          </details>
         </div>
       </aside>
     </div>
