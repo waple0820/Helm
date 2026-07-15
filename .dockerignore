@@ -1,0 +1,6 @@
+.git
+.github
+.rainbond
+__pycache__
+*.pyc
+tests
