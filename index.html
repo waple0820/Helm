@@ -1,282 +1,30 @@
 <!doctype html>
 <html lang="zh-CN">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0c0f13" />
-    <meta name="application-name" content="Helm" />
-    <title>Helm — HTML Archive</title>
-    <link rel="icon" href="assets/helm-mark.png" type="image/png" />
-    <link rel="apple-touch-icon" href="assets/helm-mark.png" />
-    <link rel="stylesheet" href="styles.css?v=20260714-experience-fixes" />
-  </head>
-  <body>
-    <div class="app-shell">
-      <aside class="sidebar">
-        <a class="brand" href="#library" aria-label="Helm home">
-          <img class="brand-icon" src="assets/helm-mark.png" alt="" width="32" height="32" />
-          <span>HELM<small>HTML ARCHIVE</small></span>
-        </a>
-
-        <nav class="navigation" aria-label="Primary navigation">
-          <button class="nav-item active" type="button" data-view="library">
-            <span class="nav-glyph">▦</span>Library <b id="libraryCount">00</b>
-          </button>
-          <button class="nav-item" type="button" data-view="templates">
-            <span class="nav-glyph">◇</span>Authoring
-          </button>
-          <button class="nav-item" type="button" data-view="contract">
-            <span class="nav-glyph">⌘</span>Document contract
-          </button>
-        </nav>
-
-        <div class="side-label">COLLECTIONS</div>
-        <div class="collections" id="collections"></div>
-
-        <div class="side-label projects-label">PROJECTS</div>
-        <div class="collections projects" id="projects"></div>
-        <div class="side-label project-review-label" id="projectReviewLabel" hidden>NEEDS REVIEW</div>
-        <div class="collections project-review" id="projectReview" hidden></div>
-
-        <div class="sidebar-bottom">
-          <div class="local-status"><span></span><div><b>LOCAL FIRST</b><small>Stored in this browser</small></div></div>
-          <button class="text-button" type="button" id="openShortcuts">Keyboard shortcuts <span>?</span></button>
-        </div>
-      </aside>
-
-      <main class="workspace">
-        <header class="topbar">
-          <div class="crumb"><span>PERSONAL REPOSITORY</span><i></i><b id="viewTitle">Library</b></div>
-          <div class="top-actions">
-            <label class="search-box" aria-label="Search documents">
-              <span>⌕</span><input id="searchInput" type="search" placeholder="Search every artifact" autocomplete="off" />
-              <kbd>⌘ K</kbd>
-            </label>
-            <div class="appearance-control" role="group" aria-label="Appearance">
-              <button type="button" data-theme-mode="light" aria-pressed="false" title="Use light appearance">Light</button>
-              <button type="button" data-theme-mode="dark" aria-pressed="false" title="Use dark appearance">Dark</button>
-              <button type="button" data-theme-mode="system" aria-pressed="true" title="Follow system appearance">System</button>
-            </div>
-            <button class="button button-quiet agent-inbox-button" id="agentInboxButton" type="button"><span>◌</span> Agent inbox <b id="agentInboxCount" hidden>0</b></button>
-            <button class="button button-quiet" id="archiveButton" type="button"><span>⇩</span> Archive backup</button>
-            <button class="button button-quiet" id="templateButton" type="button"><span>◇</span> New from template</button>
-            <button class="button button-primary" id="importButton" type="button"><span>＋</span> Import HTML</button>
-            <input id="fileInput" type="file" accept="text/html,.html,.htm" multiple hidden />
-            <input id="archiveInput" type="file" accept="application/json,.json,.helm-archive" hidden />
-          </div>
-        </header>
-
-        <section id="libraryView" class="view active-view">
-          <div class="view-heading">
-            <div>
-              <p class="eyebrow">PERSONAL HTML LIBRARY</p>
-              <h1>Documents, not loose files.</h1>
-              <p class="lede">Keep AI-produced HTML as searchable, inspectable, portable artifacts.</p>
-            </div>
-            <div class="storage-stat"><span id="documentCount">00</span><small>ARTIFACTS<br />IN LIBRARY</small></div>
-          </div>
-
-          <section class="protocol-card">
-            <div class="protocol-index">01</div>
-            <div class="protocol-copy"><p class="eyebrow">PORTABLE BY CONTRACT <span class="quiet-status"><i></i> LOCAL LIBRARY</span></p><h2>Every artifact can carry its own context.</h2><p>Use the Helm manifest to preserve title, provenance, tags and rendering intent wherever an HTML file travels.</p></div>
-            <div class="protocol-rail">
-              <div class="protocol-stats" aria-label="Library health"><div><strong id="contractReadyCount">00</strong><span>HDOC ready</span></div><div><strong id="librarySourceCount">00</strong><span>projects</span></div></div>
-              <button class="outline-button" id="readContract" type="button">Read the contract <span>→</span></button>
-            </div>
-          </section>
-
-          <div class="library-toolbar">
-            <div class="filter-zone">
-              <div class="toolbar-overline"><span>FILTER ARTIFACTS</span><span><strong id="libraryVisibleCount">00</strong> shown <i id="libraryFilterState">· All artifacts</i></span></div>
-              <div class="filter-tabs" id="filterTabs">
-                <button class="filter active" type="button" data-filter="all">All artifacts</button>
-                <button class="filter" type="button" data-filter="report">Reports</button>
-                <button class="filter" type="button" data-filter="brief">Briefs</button>
-                <button class="filter" type="button" data-filter="reference">Reference</button>
-                <button class="filter" type="button" data-filter="dashboard">Dashboards</button>
-                <button class="filter" type="button" data-filter="note">Notes</button>
-              </div>
-            </div>
-            <div class="toolbar-actions"><button class="clear-filter-button" id="clearLibraryFilters" type="button" hidden>Clear filters <span>×</span></button><label class="sort-select">SORT <select id="sortSelect"><option value="updated">Recently updated</option><option value="created">Recently created</option><option value="title">Title A–Z</option></select></label></div>
-          </div>
-
-          <div class="document-grid" id="documentGrid" aria-live="polite"></div>
-          <div class="empty-state" id="emptyState" hidden>
-            <span class="empty-state-code">LIBRARY / EMPTY</span><span class="empty-mark">⊹</span><h2>No artifacts found</h2><p>Try another search, clear the current lens, or add your first HTML document.</p><button class="button button-primary" type="button" data-empty-import>Import HTML</button>
-          </div>
-        </section>
-
-        <section id="templatesView" class="view">
-          <div class="view-heading compact"><div><p class="eyebrow">AGENT AUTHORING</p><h1>Compose the evidence, not just the page.</h1><p class="lede">Profiles choose a proven report shape; components make each important relationship visible.</p></div></div>
-          <article class="authoring-kit">
-            <div><p class="eyebrow">HELM AUTHORING KIT</p><h2>Question → relationship → component → evidence contract.</h2><p>Agents can scaffold research, benchmark, architecture, decision, handoff, and presentation-paced deep-dive reports with reusable visual components, then fail the handoff if claims, scope, sources, fallbacks, or placeholders are incomplete.</p></div>
-            <div class="authoring-actions"><code>scripts/helm-report new --profile deep-dive --output report.html</code><a class="button button-primary" href="authoring/component-gallery.html" target="_blank" rel="noopener">Open scroll component studio <span>→</span></a></div>
-          </article>
-          <div class="template-grid" id="templateGrid"></div>
-        </section>
-
-        <section id="contractView" class="view">
-          <div class="view-heading compact"><div><p class="eyebrow">HELM DOCUMENT CONTRACT</p><h1>Readable by people. Legible to machines.</h1><p class="lede">A portable file contract plus an answer-first standard for durable AI-authored reports.</p></div></div>
-          <article class="contract-sheet">
-            <div class="contract-intro"><span>SPECIFICATION</span><b>HDOC/1.0</b><p>The file is the unit of exchange. It must render independently and state enough context for another person, tool, or project to understand it.</p></div>
-            <div class="contract-grid">
-              <section><p class="rule-number">01</p><h2>Self-contained</h2><p>Deliver a single .html file. Inline essential styles. Prefer local or data-URL assets; never rely on an app shell to make the document meaningful.</p></section>
-              <section><p class="rule-number">02</p><h2>Declared metadata</h2><p>Add title, document type, tags, timestamps, source and a concise summary through standard meta tags plus the Helm manifest.</p></section>
-              <section><p class="rule-number">03</p><h2>Answer before detail</h2><p>Show the question or decision, short answer, evidence and next action in a visible reading path. Do not make readers reconstruct the point from background.</p></section>
-              <section><p class="rule-number">04</p><h2>Evidence stays inspectable</h2><p>Put sources, assumptions, data dates and confidence beside claims. Keep a semantic root, real headings and tables so the report survives beyond its visual skin.</p></section>
-              <section><p class="rule-number">05</p><h2>Visuals explain</h2><p>Use a labelled figure for a real comparison, sequence, hierarchy, change or uncertainty. Give it a conclusion, evidence state, scope note and text fallback.</p></section>
-              <section><p class="rule-number">06</p><h2>Publish a Channel</h2><p>Review the current Revision before publishing. A stable Channel address advances only by an explicit publish, while every published Revision keeps its own immutable, content-addressed URL. Forks start a new identity and preserve their source lineage.</p></section>
-            </div>
-            <div class="manifest-example"><div><p class="eyebrow">REQUIRED MANIFEST SHAPE</p><p>The full, copyable contract, visual report standard, and intranet sharing boundary are versioned in this repository.</p><a href="docs/HTML-DOCUMENT-SPEC.md" target="_blank">Open full specification →</a><br><a href="docs/REPORT-DESIGN-STANDARD.md" target="_blank">Open report design standard →</a><br><a href="docs/INTRANET-SHARING.md" target="_blank">Open sharing boundary →</a></div><pre><code>&lt;script type="application/json" data-helm-manifest&gt;
-{
-  "schema_version": "HDOC/1.0",
-  "id": "brief-2026-07-13",
-  "title": "Clear document title",
-  "type": "brief",
-  "tags": ["research", "active"],
-  "summary": "One decisive sentence.",
-  "created_at": "2026-07-13T00:00:00Z",
-  "updated_at": "2026-07-13T00:00:00Z",
-  "project": { "id": "project-workspace", "name": "Project workspace" },
-  "provenance": { "author": "…", "sources": [] }
-}
-&lt;/script&gt;</code></pre></div>
-          </article>
-        </section>
-      </main>
-
-      <aside class="inspector" id="inspector">
-        <div class="inspector-empty" id="inspectorEmpty"><span>◌</span><p>Select an artifact<br />to inspect its record.</p></div>
-        <div class="inspector-content" id="inspectorContent" hidden>
-          <div class="inspector-top"><div class="inspector-badges"><span class="type-pill" id="selectedType">REPORT</span><span class="workflow-badge" id="selectedWorkflowStatus" data-status="draft">DRAFT</span></div><button id="closeInspector" type="button" aria-label="Close inspector">×</button></div>
-          <h2 id="selectedTitle"></h2><p class="inspector-summary" id="selectedSummary"></p>
-          <div class="tag-list" id="selectedTags"></div>
-          <section class="revision-state" aria-labelledby="revisionStateTitle">
-            <div class="revision-state-heading"><span id="revisionStateTitle">CURRENT REVISION</span><strong id="selectedRevisionLabel">Revision 01</strong></div>
-            <p id="selectedPublishedState">Not published</p>
-            <div class="revision-state-actions"><button class="text-button" id="reviewButton" type="button">Mark reviewed</button><button class="text-button" id="historyButton" type="button">History &amp; compare <span>→</span></button></div>
-          </section>
-          <dl class="metadata"><div><dt>PROJECT</dt><dd id="selectedProject"></dd></div><div><dt>CATALOG UPDATED</dt><dd id="selectedUpdated"></dd></div><div><dt>SOURCE</dt><dd id="selectedSource"></dd></div><div><dt>IDENTITY</dt><dd id="selectedIdentity"></dd></div><div><dt>FORMAT</dt><dd id="selectedFormat"></dd></div><div><dt>SIZE</dt><dd id="selectedSize"></dd></div></dl>
-          <div class="inspector-actions"><button class="button button-primary" id="previewButton" type="button">Open reader <span>↗</span></button><button class="button button-quiet" id="exportButton" type="button">Export .html</button></div>
-          <button class="button button-quiet share-button" id="shareButton" data-share-action type="button">Publish intranet link</button>
-          <div class="share-record stable-address" id="shareRecord" hidden><span id="shareRecordLabel">STABLE ADDRESS</span><a id="selectedShare" target="_blank" rel="noopener noreferrer"></a><small id="selectedRevisionShare">Published revisions remain available at their immutable addresses.</small></div>
-          <button class="text-button revoke-channel-button" id="revokeShareButton" type="button" hidden>Revoke stable address</button>
-          <section class="lineage-record" id="lineageRecord" hidden aria-labelledby="lineageTitle"><span id="lineageTitle">LINEAGE</span><p>Forked from <a id="selectedLineage" href="#"></a></p><button class="text-button" id="openLineageButton" type="button">Open source revision <span>↗</span></button></section>
-          <section class="fork-handoff" id="forkHandoff" hidden aria-labelledby="forkHandoffTitle"><span id="forkHandoffTitle">CONTINUE THIS FORK</span><p>The copied Revision is evidence, not yet a publishable Channel. Ask an agent to create a final HDOC Revision whose manifest ID is <code id="forkArtifactId"></code>.</p><button class="button button-quiet" id="copyForkHandoffButton" type="button">Copy agent handoff</button></section>
-          <button class="button button-quiet fork-button" id="forkButton" type="button">Fork current revision</button>
-          <button class="button button-quiet catalog-button" id="editMetadataButton" type="button">Edit catalog metadata</button>
-          <div class="inspector-divider"></div>
-          <div class="quality-row"><span class="quality-dot" id="manifestDot"></span><div><b id="manifestStatus">Metadata inspection</b><small id="manifestHint"></small></div></div>
-          <div class="health-summary"><strong id="healthScore">--</strong><div><b>Artifact health</b><small id="healthHint">Checking portable structure…</small></div></div>
-          <ul class="health-issues" id="healthIssues"></ul>
-          <button class="button button-quiet repair-button" id="repairButton" type="button" hidden>Create compliant copy</button>
-          <button class="danger-button" id="deleteButton" type="button">Remove from this browser</button>
-        </div>
-      </aside>
-    </div>
-
-    <dialog id="createDialog" class="modal">
-      <form method="dialog" id="createForm">
-        <div class="modal-heading"><div><p class="eyebrow">NEW ARTIFACT</p><h2 id="createTitle">Create from template</h2></div><button class="modal-close" type="button" data-close-create aria-label="Close">×</button></div>
-        <label>Title<input id="newTitle" name="title" required maxlength="100" placeholder="Untitled artifact" /></label>
-        <label>Summary<textarea id="newSummary" name="summary" maxlength="240" placeholder="What should this document make clear?"></textarea></label>
-        <label>Tags <input id="newTags" name="tags" placeholder="research, draft, personal" /></label>
-        <div class="modal-actions"><button class="button button-quiet" type="button" data-close-create>Cancel</button><button class="button button-primary" id="createSubmit" type="submit">Create document</button></div>
-      </form>
-    </dialog>
-
-    <dialog id="metadataDialog" class="modal">
-      <form method="dialog" id="metadataForm">
-        <div class="modal-heading"><div><p class="eyebrow">CATALOG OVERLAY</p><h2>Organize without rewriting.</h2></div><button class="modal-close" type="button" data-close-metadata aria-label="Close">×</button></div>
-        <p class="modal-copy">These fields power Helm’s library and backup catalog. Your original HTML remains byte-for-byte unchanged when exported.</p>
-        <label>Title<input id="catalogTitle" name="title" required maxlength="100" /></label>
-        <label>Document type<select id="catalogType" name="type"><option value="report">Report</option><option value="brief">Brief</option><option value="reference">Reference</option><option value="dashboard">Dashboard</option><option value="note">Note</option></select></label>
-        <label>Summary<textarea id="catalogSummary" name="summary" maxlength="240"></textarea></label>
-        <label>Tags <input id="catalogTags" name="tags" placeholder="research, draft, personal" /></label>
-        <label>Project workspace <input id="catalogProject" name="project" maxlength="100" placeholder="texas-gto-lab" list="projectSuggestions" /></label>
-        <datalist id="projectSuggestions"></datalist>
-        <label>Source label <input id="catalogSource" name="source" maxlength="120" /></label>
-        <div class="modal-actions"><button class="button button-quiet" type="button" data-close-metadata>Cancel</button><button class="button button-primary" type="submit">Save catalog metadata</button></div>
-      </form>
-    </dialog>
-
-    <dialog id="duplicateImportDialog" class="modal conflict-modal">
-      <form method="dialog" id="duplicateImportForm">
-        <div class="modal-heading"><div><p class="eyebrow">IDENTITY CONFLICT</p><h2>Keep a distinct catalog copy?</h2></div><button class="modal-close" value="cancel" aria-label="Close">×</button></div>
-        <p class="modal-copy">These files declare an HDOC identity that already exists in this library. Keeping them assigns a new <em>library</em> ID while preserving the source HTML and its manifest ID. Nothing is silently renamed inside the original file.</p>
-        <ul class="conflict-list" id="duplicateImportList"></ul>
-        <div class="modal-actions"><button class="button button-quiet" id="skipDuplicateImports" value="cancel">Skip duplicates</button><button class="button button-primary" id="keepDuplicateImports" value="default">Keep as catalog copies</button></div>
-      </form>
-    </dialog>
-
-    <dialog id="agentInboxDialog" class="modal agent-inbox-modal">
-      <div class="agent-inbox-inner">
-        <div class="modal-heading"><div><p class="eyebrow">HELM BRIDGE</p><h2>Agent inbox</h2></div><button class="modal-close" type="button" data-close-agent-inbox aria-label="Close">×</button></div>
-        <p class="modal-copy">Agents submit HDOC HTML to your loopback Bridge. Importing here never overwrites a browser artifact with the same library ID.</p>
-        <div class="agent-inbox-status"><span class="folder-status-dot" id="agentInboxDot"></span><div><b id="agentInboxStatus">Checking local Bridge…</b><small id="agentInboxHint">Bridge listens at 127.0.0.1:4175.</small></div></div>
-        <ul class="conflict-list agent-inbox-list" id="agentInboxList"></ul>
-        <div class="modal-actions"><button class="button button-quiet" id="agentInboxRefreshButton" type="button">Refresh</button><button class="button button-primary" id="agentInboxImportButton" type="button" disabled>Select artifacts to import</button></div>
-      </div>
-    </dialog>
-
-    <dialog id="readerDialog" class="reader-modal">
-      <div class="reader-toolbar"><div class="reader-identity"><span class="eyebrow">READER</span><b id="readerTitle"></b><span class="reader-revision-state" id="readerRevisionState" data-status="draft">v1 · Draft</span></div><div><button class="button button-quiet" id="readerHistory" type="button">History</button><button class="button button-quiet" id="readerShare" data-share-action type="button">Share link</button><button class="button button-quiet" id="readerExport" type="button">Export</button><button class="reader-close" id="closeReader" type="button" aria-label="Close reader">×</button></div></div>
-      <div class="reader-stage">
-        <div class="reader-loading" id="readerLoading" role="status" aria-live="polite" hidden>
-          <span class="reader-spinner" aria-hidden="true"></span>
-          <span><b id="readerLoadingTitle">Opening document</b><small id="readerLoadingHint">Preparing preview…</small></span>
-        </div>
-        <iframe id="readerFrame" title="HTML document reader" sandbox></iframe>
-      </div>
-    </dialog>
-
-    <dialog id="historyDialog" class="artifact-workspace-modal">
-      <div class="artifact-workspace-shell">
-        <header class="artifact-workspace-header">
-          <div><p class="eyebrow" id="historyArtifactIdentity">ARTIFACT HISTORY</p><h2 id="historyArtifactTitle">Artifact title</h2></div>
-          <div class="artifact-workspace-address"><span id="historyAddressLabel">STABLE ADDRESS</span><a id="historyStableLink" target="_blank" rel="noopener noreferrer">Not published</a></div>
-          <button class="reader-close" id="closeHistory" type="button" aria-label="Close history and compare">×</button>
-        </header>
-        <div class="artifact-workspace">
-          <aside class="revision-rail" aria-label="Revision history">
-            <div class="revision-rail-heading"><span>REVISIONS</span><strong id="historyRevisionCount">01</strong></div>
-            <ol class="revision-timeline" id="revisionTimeline"></ol>
-            <button class="button button-quiet" id="forkArtifactButton" type="button">Fork selected revision</button>
-          </aside>
-          <section class="compare-workspace" id="compareWorkspace">
-            <div class="compare-toolbar">
-              <div><p class="eyebrow" id="compareEyebrow">VISUAL COMPARE</p><strong id="compareHeading">Rendered revision diff</strong></div>
-              <div class="compare-selectors">
-                <label>FROM<select id="compareFrom" aria-label="Compare from revision"></select></label><span aria-hidden="true">→</span><label>TO<select id="compareTo" aria-label="Compare to revision"></select></label>
-              </div>
-            </div>
-            <p class="compare-note" id="compareNote">Both revisions render at the same viewport. The original HTML remains sandboxed and unchanged.</p>
-            <div class="visual-diff" id="visualDiff">
-              <section><header id="diffBeforeLabel">Previous revision</header><iframe id="diffBefore" title="Previous artifact revision" sandbox></iframe></section>
-              <section><header id="diffAfterLabel">Current revision</header><iframe id="diffAfter" title="Current artifact revision" sandbox></iframe></section>
-            </div>
-          </section>
-        </div>
-      </div>
-    </dialog>
-
-    <dialog id="archiveDialog" class="modal archive-modal">
-      <div class="archive-dialog-inner">
-        <div class="modal-heading"><div><p class="eyebrow">PORTABLE BACKUP</p><h2>Your library is an archive.</h2></div><button class="modal-close" type="button" data-close-archive aria-label="Close">×</button></div>
-        <p class="archive-copy">Export every immutable revision, its lineage, and catalog metadata into one portable archive file. Importing never overwrites an artifact already present in this library.</p>
-        <div class="archive-summary"><span id="archiveDocumentCount">00</span><div><b>ARTIFACTS READY</b><small>HTML source + metadata + timestamps</small></div></div>
-        <div class="folder-sync"><div class="folder-sync-copy"><span class="folder-status-dot" id="folderStatusDot"></span><div><b id="folderStatus">Browser library only</b><small id="folderStatusHint">Connect a local folder for explicit sync and recovery.</small></div></div><div class="folder-sync-actions"><button class="button button-quiet" id="chooseFolderButton" type="button">Connect folder</button><button class="button button-quiet" id="syncFolderButton" type="button" disabled>Sync now</button><button class="text-button folder-recover" id="recoverFolderButton" type="button">Recover from folder</button></div></div>
-        <div class="modal-actions"><button class="button button-quiet" id="archiveImportButton" type="button">Import archive</button><button class="button button-primary" id="archiveExportButton" type="button">Export archive <span>↓</span></button></div>
-      </div>
-    </dialog>
-
-    <dialog id="shortcutsDialog" class="shortcuts-modal"><div><div class="modal-heading"><div><p class="eyebrow">WORKSPACE</p><h2>Keyboard shortcuts</h2></div><button class="modal-close" type="button" data-close-shortcuts>×</button></div><p><kbd>⌘ K</kbd><span>Focus search</span></p><p><kbd>N</kbd><span>New from template</span></p><p><kbd>I</kbd><span>Import HTML</span></p><p><kbd>Esc</kbd><span>Close dialogs</span></p></div></dialog>
-    <div class="toast" id="toast" role="status"></div>
-    <script src="validator.js"></script>
-    <script src="channel-store.js"></script>
-    <script src="archive-backup.js"></script>
-    <script src="folder-sync.js"></script>
-    <script src="repair.js"></script>
-    <script src="app.js?v=20260714-experience-fixes"></script>
-  </body>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Helm — Published Artifacts</title>
+  <style>
+    :root{color-scheme:light;background:#f3f1ec;color:#18202b;font:16px/1.6 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    *{box-sizing:border-box}body{margin:0}.shell{max-width:1080px;margin:auto;padding:72px 28px 96px}
+    header{border-bottom:1px solid #c9c5bb;padding-bottom:32px;margin-bottom:36px}.eyebrow{font:700 12px/1.2 ui-monospace,SFMono-Regular,monospace;letter-spacing:.18em;color:#65717d;text-transform:uppercase}
+    h1{font:600 clamp(42px,7vw,76px)/1.02 Georgia,serif;letter-spacing:-.045em;margin:14px 0}.lede{max-width:680px;color:#56616d;font-size:18px}
+    .grid{display:grid;gap:14px}.card{display:grid;grid-template-columns:1fr auto;gap:24px;align-items:center;background:#fff;border:1px solid #d8d5cd;border-radius:12px;padding:24px;color:inherit;text-decoration:none;transition:.18s ease}
+    .card:hover{transform:translateY(-2px);border-color:#8f9aa5;box-shadow:0 12px 28px rgba(24,32,43,.08)}h2{font-size:20px;line-height:1.35;margin:0 0 6px}.meta{font:12px ui-monospace,SFMono-Regular,monospace;color:#78838d;text-transform:uppercase}.arrow{font-size:24px}
+    footer{margin-top:36px;color:#7a817f;font-size:13px}@media(max-width:640px){.shell{padding:46px 18px}.card{padding:20px}.arrow{display:none}}
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header><div class="eyebrow">Helm / Public Channels</div><h1>Published artifacts.</h1><p class="lede">Helm 中明确发布的只读 HTML 报告。每个地址可直接从外部网络访问。</p></header>
+    <section class="grid" aria-label="Published artifacts">
+      <a class="card" href="a/browser-agent-benchmark-atlas-2026-07-15/"><span><span class="meta">Report · browseruse-agent-bench</span><h2>Browser Agent Benchmark 数据全景</h2></span><span class="arrow">↗</span></a>
+      <a class="card" href="a/lexmount-nemo-gym-nvidia-brief-2026-07-14/"><span><span class="meta">Report · Lexmount Browser Lab</span><h2>Lexmount × NeMo-Gym：云端浏览器环境与验证计划</h2></span><span class="arrow">↗</span></a>
+      <a class="card" href="a/lexmount-64h100-training-delivery-brief/"><span><span class="meta">Brief · GPU CLI</span><h2>Lexmount 64 H100 训练交付包：对齐稿</h2></span><span class="arrow">↗</span></a>
+      <a class="card" href="a/helm-channels-phase-one-2026-07-14/"><span><span class="meta">Note · Helm</span><h2>Helm Channels phase one handoff</h2></span><span class="arrow">↗</span></a>
+      <a class="card" href="a/texas-gto-lab-strategy-boundary-report-2026-07-13/"><span><span class="meta">Report · Texas GTO Lab</span><h2>Texas GTO Lab：可用于单挑训练，但不能宣称多人 GTO</h2></span><span class="arrow">↗</span></a>
+    </section>
+    <footer>Read-only public mirror · Source originals remain immutable in Helm.</footer>
+  </main>
+</body>
 </html>

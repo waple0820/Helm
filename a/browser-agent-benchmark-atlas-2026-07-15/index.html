@@ -1,0 +1,760 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="helm:title" content="Browser Agent Benchmark 数据全景">
+  <meta name="helm:type" content="report">
+  <meta name="helm:summary" content="五套 benchmark 共 1,695 个唯一任务，但真实网页、自托管站点与容器模拟环境不能只按任务数横向比较。">
+  <meta name="helm:tags" content="benchmark, browser-agent, dataset, evaluation, evidence">
+  <title>Browser Agent Benchmark 数据全景</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f2f0e9;
+      --surface: #fbfaf6;
+      --ink: #1b1d1b;
+      --soft: #646961;
+      --line: #d5d1c6;
+      --accent: #b34e43;
+      --accent-soft: #ead9d3;
+      --blue: #3f6f7a;
+      --green: #50745d;
+      --gold: #9c7138;
+      --violet: #766986;
+      --display: Georgia, "Noto Serif SC", "Songti SC", serif;
+      --ui: Inter, "Noto Sans SC", "PingFang SC", system-ui, sans-serif;
+      --mono: "SFMono-Regular", Consolas, monospace;
+      --reading: 48rem;
+      --content: 76rem;
+      --stage: 92rem;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--paper);
+      font-family: var(--ui);
+      line-height: 1.65;
+    }
+    a { color: var(--blue); text-underline-offset: 3px; }
+    main { padding: 0 24px 88px; }
+    .stage { width: min(var(--stage), 100%); margin-inline: auto; }
+    .content { width: min(var(--content), 100%); margin-inline: auto; }
+    .topline {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 22px 0;
+      border-bottom: 1px solid var(--line);
+      color: var(--soft);
+      font: 11px var(--mono);
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 300px;
+      gap: 56px;
+      align-items: end;
+      padding: 82px 0 52px;
+    }
+    .eyebrow,
+    .component-label,
+    .meta-label {
+      margin: 0;
+      color: var(--accent);
+      font: 11px var(--mono);
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    h1, h2, h3 { letter-spacing: 0; }
+    .hero h1 {
+      max-width: 900px;
+      margin: 14px 0 20px;
+      font: 500 66px/1.02 var(--display);
+    }
+    .hero .dek {
+      max-width: 840px;
+      margin: 0;
+      color: #454943;
+      font: 21px/1.55 var(--display);
+    }
+    .hero-facts { margin: 0; border-top: 1px solid var(--line); }
+    .hero-facts div {
+      display: grid;
+      grid-template-columns: 88px 1fr;
+      gap: 14px;
+      padding: 13px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .hero-facts dt {
+      color: var(--soft);
+      font: 10px var(--mono);
+      text-transform: uppercase;
+    }
+    .hero-facts dd { margin: 0; font-size: 13px; }
+    .thesis {
+      margin-bottom: 38px;
+      padding: 28px 30px;
+      border-left: 4px solid var(--accent);
+      background: var(--surface);
+    }
+    .thesis p:last-child {
+      max-width: 980px;
+      margin: 8px 0 0;
+      font: 500 34px/1.25 var(--display);
+    }
+    .reader-path {
+      display: grid;
+      grid-template-columns: 180px 1fr;
+      gap: 28px;
+      padding: 24px 0;
+      border-block: 1px solid var(--line);
+    }
+    .reader-path p { margin: 0; }
+    .reader-path p:last-child { font: 23px/1.4 var(--display); }
+    .chapter { padding: 72px 0 20px; }
+    .chapter-head {
+      display: grid;
+      grid-template-columns: 150px minmax(0, 1fr);
+      gap: 30px;
+      margin-bottom: 28px;
+    }
+    .chapter-index {
+      color: var(--accent);
+      font: 11px var(--mono);
+      letter-spacing: .1em;
+    }
+    .chapter-head h2,
+    .component-head h2 {
+      margin: 0;
+      font: 500 42px/1.12 var(--display);
+    }
+    .chapter-head p {
+      max-width: 780px;
+      margin: 14px 0 0;
+      color: var(--soft);
+    }
+    [data-helm-component] {
+      margin: 0 0 28px;
+      padding: 26px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+    }
+    .component-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 28px;
+      align-items: flex-start;
+      margin-bottom: 22px;
+    }
+    .component-head h2 {
+      max-width: 800px;
+      margin-top: 7px;
+      font-size: 32px;
+    }
+    .component-meta {
+      flex: 0 0 220px;
+      text-align: right;
+      color: var(--soft);
+      font: 10px/1.55 var(--mono);
+    }
+    .component-meta b { display: block; color: var(--ink); font-weight: 500; }
+    .component-note,
+    figcaption {
+      max-width: 920px;
+      margin: 16px 0 0;
+      color: var(--soft);
+      font-size: 13px;
+    }
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      border-block: 1px solid var(--line);
+    }
+    .kpi-grid div { padding: 23px 18px; border-right: 1px solid var(--line); }
+    .kpi-grid div:last-child { border-right: 0; }
+    .kpi-grid dt {
+      color: var(--soft);
+      font: 10px var(--mono);
+      text-transform: uppercase;
+    }
+    .kpi-grid dd {
+      margin: 7px 0 0;
+      font: 500 38px/1 var(--display);
+      font-variant-numeric: tabular-nums;
+    }
+    .kpi-grid small { display: block; margin-top: 8px; color: var(--soft); font-size: 11px; }
+    .bars { display: grid; gap: 15px; }
+    .bar-row {
+      display: grid;
+      grid-template-columns: minmax(160px, 220px) minmax(180px, 1fr) 92px;
+      gap: 14px;
+      align-items: center;
+    }
+    .bar-label { font-size: 13px; }
+    .bar-track { height: 20px; background: var(--paper); border-left: 1px solid var(--ink); }
+    .bar-fill { display: block; width: var(--value); height: 100%; background: var(--blue); }
+    .bar-row:nth-child(1) .bar-fill { background: var(--accent); }
+    .bar-row:nth-child(3) .bar-fill { background: var(--green); }
+    .bar-row:nth-child(4) .bar-fill { background: var(--gold); }
+    .bar-row:nth-child(5) .bar-fill { background: var(--violet); }
+    .bar-value { text-align: right; font: 12px var(--mono); font-variant-numeric: tabular-nums; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    caption {
+      padding: 13px 15px;
+      text-align: left;
+      color: var(--soft);
+      font: 10px var(--mono);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    th, td { padding: 13px 15px; border-top: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th {
+      color: var(--soft);
+      font: 10px var(--mono);
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+    td strong { font-weight: 650; }
+    .pill {
+      display: inline-block;
+      padding: 3px 6px;
+      border: 1px solid currentColor;
+      color: var(--blue);
+      font: 9px var(--mono);
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .pill.live { color: var(--green); }
+    .pill.controlled { color: var(--violet); }
+    .pill.warning { color: var(--gold); }
+    .selected-row { background: color-mix(in srgb, var(--accent-soft) 60%, transparent); }
+    .trace-stack { display: grid; gap: 18px; }
+    .trace-label { display: flex; justify-content: space-between; gap: 18px; margin-bottom: 7px; font-size: 13px; }
+    .trace-label span:last-child { color: var(--soft); font-family: var(--mono); }
+    .trace {
+      display: flex;
+      min-height: 76px;
+      border: 1px solid var(--line);
+      overflow: hidden;
+    }
+    .trace span {
+      display: grid;
+      align-content: center;
+      width: var(--value);
+      min-width: 72px;
+      padding: 10px;
+      border-right: 1px solid var(--surface);
+      color: #fff;
+      background: var(--blue);
+    }
+    .trace span:nth-child(2) { background: var(--accent); }
+    .trace span:nth-child(3) { background: var(--green); }
+    .trace span:nth-child(4) { background: var(--gold); }
+    .trace span:nth-child(5) { background: var(--violet); }
+    .trace b, .trace small { display: block; }
+    .trace small { font: 10px var(--mono); opacity: .88; }
+    .difficulty .trace { min-height: 58px; }
+    .difficulty .trace span:nth-child(1) { background: var(--green); }
+    .difficulty .trace span:nth-child(2) { background: var(--gold); }
+    .difficulty .trace span:nth-child(3) { background: var(--accent); }
+    .case-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .case { padding: 18px; border: 1px solid var(--line); background: var(--paper); }
+    .case header {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--soft);
+      font: 10px var(--mono);
+      text-transform: uppercase;
+    }
+    .case h3 { margin: 22px 0 8px; font: 500 22px/1.2 var(--display); }
+    .case p { margin: 0; color: var(--soft); font-size: 13px; }
+    .case ul { margin: 14px 0 0; padding-left: 18px; font-size: 13px; }
+    .case li + li { margin-top: 7px; }
+    .method-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-top: 18px;
+    }
+    .method-grid div { padding: 16px; border-top: 2px solid var(--line); }
+    .method-grid strong { display: block; margin-bottom: 5px; }
+    .method-grid p { margin: 0; color: var(--soft); font-size: 13px; }
+    .quality-high { color: var(--accent); font-weight: 700; }
+    .quality-medium { color: var(--gold); font-weight: 700; }
+    .sources { margin-top: 68px; padding-top: 28px; border-top: 1px solid var(--line); }
+    .sources h2 { font: 500 30px var(--display); }
+    .sources li { margin-bottom: 10px; color: var(--soft); overflow-wrap: anywhere; }
+    .source-sha { font: 11px var(--mono); }
+    .boundary {
+      margin-top: 28px;
+      padding: 22px 24px;
+      border-left: 3px solid var(--gold);
+      background: var(--surface);
+    }
+    .boundary h2 { margin: 6px 0 8px; font: 500 27px var(--display); }
+    .boundary p { margin: 0; color: var(--soft); }
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+    @media (max-width: 900px) {
+      .hero { grid-template-columns: 1fr; }
+      .hero-facts { max-width: 520px; }
+      .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+      .case-grid, .method-grid { grid-template-columns: 1fr 1fr; }
+      .trace span { min-width: 58px; }
+    }
+    @media (max-width: 620px) {
+      main { padding-inline: 16px; }
+      .topline span:last-child { display: none; }
+      .hero { padding: 54px 0 40px; }
+      .hero h1 { font-size: 42px; }
+      .hero .dek { font-size: 18px; }
+      .thesis p:last-child { font-size: 27px; }
+      .reader-path, .chapter-head, .component-head { display: block; }
+      .chapter-index, .component-meta { margin-bottom: 12px; text-align: left; }
+      .chapter { padding-top: 52px; }
+      [data-helm-component] { padding: 18px; margin-inline: -8px; }
+      .kpi-grid, .case-grid, .method-grid { grid-template-columns: 1fr; }
+      .kpi-grid div { border-right: 0; border-bottom: 1px solid var(--line); }
+      .bar-row { grid-template-columns: 1fr; gap: 6px; }
+      .bar-value { text-align: left; }
+      .trace { display: grid; }
+      .trace span { width: 100%; min-width: 0; }
+      .table-wrap { margin-inline: -18px; }
+      .table-wrap table { min-width: 760px; }
+    }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+    @media print {
+      body { background: #fff; }
+      [data-helm-component] { break-inside: avoid; }
+      a { color: var(--ink); }
+    }
+  </style>
+  <script type="application/json" data-helm-manifest>
+  {
+    "schema_version": "HDOC/1.0",
+    "id": "browser-agent-benchmark-atlas-2026-07-15",
+    "title": "Browser Agent Benchmark 数据全景",
+    "type": "report",
+    "tags": ["benchmark", "browser-agent", "dataset", "evaluation", "evidence"],
+    "summary": "五套 benchmark 共 1,695 个唯一任务，但真实网页、自托管站点与容器模拟环境不能只按任务数横向比较。",
+    "created_at": "2026-07-15T08:50:14Z",
+    "updated_at": "2026-07-15T08:50:14Z",
+    "project": {
+      "id": "browseruse-agent-bench",
+      "name": "browseruse-agent-bench"
+    },
+    "provenance": {
+      "author": "codex",
+      "sources": [
+        {"label": "Online-Mind2Web", "url": "https://huggingface.co/datasets/osunlp/Online-Mind2Web", "accessed_at": "2026-07-15"},
+        {"label": "WebArena-Verified", "url": "https://huggingface.co/datasets/AmineHA/WebArena-Verified", "accessed_at": "2026-07-15"},
+        {"label": "LexBench-Browser-Private", "url": "https://huggingface.co/datasets/Lexmount/LexBench-Browser-Private", "accessed_at": "2026-07-15"},
+        {"label": "ClawBench", "url": "https://huggingface.co/datasets/TIGER-Lab/ClawBench", "accessed_at": "2026-07-15"},
+        {"label": "LiveClawBench trajectories", "url": "https://huggingface.co/datasets/Mosi-AI/LiveClawbench-trajectories", "accessed_at": "2026-07-15"}
+      ]
+    },
+    "presentation": {
+      "profile": "benchmark",
+      "mode": "standard",
+      "claims": [
+        {"id": "C01", "relationship": "headline measures", "component": "kpi-strip"},
+        {"id": "C02", "relationship": "relative magnitude", "component": "ranked-bars"},
+        {"id": "C03", "relationship": "alternatives and trade-offs", "component": "comparison-matrix"},
+        {"id": "C04", "relationship": "part-to-whole decomposition", "component": "trace"},
+        {"id": "C05", "relationship": "comparable examples", "component": "case-ledger"},
+        {"id": "C06", "relationship": "claim strength", "component": "evidence-ledger"}
+      ]
+    }
+  }
+  </script>
+</head>
+<body>
+<main data-document-root>
+  <div class="stage topline">
+    <span>Benchmark report · HDOC/1.0</span>
+    <span>Data snapshot 2026-07-15</span>
+  </div>
+
+  <header class="stage hero">
+    <div>
+      <p class="eyebrow">Evidence original · five datasets</p>
+      <h1>Browser Agent Benchmark 数据全景</h1>
+      <p class="dek">Online-Mind2Web、WebArena、LexBench 登录子集、ClawBench 与 LiveClawBench 的规模、环境、任务结构和评测证据对照。</p>
+    </div>
+    <dl class="hero-facts">
+      <div><dt>Scope</dt><dd>5 套 benchmark</dd></div>
+      <div><dt>Tasks</dt><dd>1,695 个唯一任务</dd></div>
+      <div><dt>Snapshot</dt><dd>2026-07-15</dd></div>
+      <div><dt>Method</dt><dd>按源文件重新统计</dd></div>
+    </dl>
+  </header>
+
+  <section class="content thesis" aria-labelledby="short-answer">
+    <p class="component-label">Short answer</p>
+    <p id="short-answer">这五套数据不是同一种 benchmark：3 套直接面对真实网页，WebArena 使用可重置自托管站点，LiveClawBench 使用容器化模拟服务。规模可以并列展示，成功率与难度不能脱离环境和评测器直接比较。</p>
+  </section>
+
+  <aside class="content reader-path" aria-label="阅读路径">
+    <p class="component-label">Reader path</p>
+    <p>先看覆盖规模，再看环境与评测口径，最后查看难度、代表任务和数据质量边界。</p>
+  </aside>
+
+  <section class="stage chapter" aria-labelledby="scope-title">
+    <div class="chapter-head">
+      <span class="chapter-index">01 / SCOPE</span>
+      <div>
+        <h2 id="scope-title">1,695 个唯一任务，覆盖三类评测环境。</h2>
+        <p>LiveClawBench 按 134 个唯一任务计数，不把 17 个模型、每题 3 次运行产生的 6,834 条轨迹重复加入任务总数。</p>
+      </div>
+    </div>
+
+    <section
+      data-helm-component="kpi-strip"
+      data-helm-claim="C01"
+      data-evidence-state="measured"
+      data-source="Five Hugging Face dataset snapshots accessed 2026-07-15"
+      data-scope="300 + 812 + 166 + 283 + 134 unique tasks"
+      aria-labelledby="C01-title">
+      <div class="component-head">
+        <div>
+          <p class="component-label">KPI strip · headline measures</p>
+          <h2 id="C01-title">任务总量大，但真正需要登录态运营的是 LexBench 的 166 条子集。</h2>
+        </div>
+        <div class="component-meta"><b>MEASURED</b>5 datasets · snapshot 2026-07-15</div>
+      </div>
+      <dl class="kpi-grid">
+        <div><dt>唯一任务</dt><dd>1,695</dd><small>五套数据按统一任务口径加总</small></div>
+        <div><dt>最大数据集</dt><dd>812</dd><small>WebArena-Verified</small></div>
+        <div><dt>明确需登录</dt><dd>166</dd><small>LexBench login_required=true</small></div>
+        <div><dt>真实网页</dt><dd>3 / 5</dd><small>Online-Mind2Web、LexBench、ClawBench</small></div>
+      </dl>
+      <p class="component-note">来源：对应 Hugging Face 提交快照；任务总数计算式为 300 + 812 + 166 + 283 + 134。</p>
+    </section>
+
+    <figure
+      data-helm-component="ranked-bars"
+      data-helm-claim="C02"
+      data-evidence-state="measured"
+      data-source="Current dataset files on Hugging Face, accessed 2026-07-15"
+      data-scope="Unique executable tasks; largest dataset normalized to 100%"
+      aria-labelledby="C02-title">
+      <div class="component-head">
+        <div>
+          <p class="component-label">Ranked bars · task magnitude</p>
+          <h2 id="C02-title">WebArena 占全部任务近一半，LexBench 登录子集最小。</h2>
+        </div>
+        <div class="component-meta"><b>MEASURED</b>Unit: unique tasks</div>
+      </div>
+      <div class="bars" role="img" aria-label="WebArena 812，Online-Mind2Web 300，ClawBench 283，LexBench 登录子集 166，LiveClawBench 134">
+        <div class="bar-row"><span class="bar-label">WebArena-Verified</span><span class="bar-track"><i class="bar-fill" style="--value:100%"></i></span><span class="bar-value">812</span></div>
+        <div class="bar-row"><span class="bar-label">Online-Mind2Web</span><span class="bar-track"><i class="bar-fill" style="--value:36.95%"></i></span><span class="bar-value">300</span></div>
+        <div class="bar-row"><span class="bar-label">ClawBench</span><span class="bar-track"><i class="bar-fill" style="--value:34.85%"></i></span><span class="bar-value">283</span></div>
+        <div class="bar-row"><span class="bar-label">LexBench 登录子集</span><span class="bar-track"><i class="bar-fill" style="--value:20.44%"></i></span><span class="bar-value">166</span></div>
+        <div class="bar-row"><span class="bar-label">LiveClawBench</span><span class="bar-track"><i class="bar-fill" style="--value:16.50%"></i></span><span class="bar-value">134</span></div>
+      </div>
+      <table data-helm-fallback class="visually-hidden">
+        <caption>五套 benchmark 的唯一任务数</caption>
+        <thead><tr><th>Dataset</th><th>Tasks</th></tr></thead>
+        <tbody>
+          <tr><td>WebArena-Verified</td><td>812</td></tr>
+          <tr><td>Online-Mind2Web</td><td>300</td></tr>
+          <tr><td>ClawBench</td><td>283</td></tr>
+          <tr><td>LexBench 登录子集</td><td>166</td></tr>
+          <tr><td>LiveClawBench</td><td>134</td></tr>
+        </tbody>
+      </table>
+      <figcaption>条形长度以 WebArena 的 812 条为基准。这里比较数据规模，不代表更难或更接近真实生产。</figcaption>
+    </figure>
+  </section>
+
+  <section class="stage chapter" aria-labelledby="environment-title">
+    <div class="chapter-head">
+      <span class="chapter-index">02 / ENVIRONMENT</span>
+      <div>
+        <h2 id="environment-title">评测环境决定了结果能否横向比较。</h2>
+        <p>真实网站更接近线上使用，但受页面漂移、登录态和风控影响；可控环境牺牲部分真实性，换取可复现状态与更确定的验证器。</p>
+      </div>
+    </div>
+
+    <section
+      data-helm-component="comparison-matrix"
+      data-helm-claim="C03"
+      data-evidence-state="verified"
+      data-source="Dataset schemas, cards, and repository evaluator implementation inspected 2026-07-15"
+      data-scope="Environment, authentication, evaluator evidence, and dominant operational uncertainty"
+      aria-labelledby="C03-title">
+      <div class="component-head">
+        <div>
+          <p class="component-label">Comparison matrix · evaluation surface</p>
+          <h2 id="C03-title">三套真实网页 benchmark 的主要风险来自外部状态，而不是任务文本本身。</h2>
+        </div>
+        <div class="component-meta"><b>VERIFIED</b>Environment boundary</div>
+      </div>
+      <div class="table-wrap">
+        <table data-helm-fallback>
+          <caption>环境、登录与评测证据对照</caption>
+          <thead>
+            <tr><th>Dataset</th><th>Tasks</th><th>Environment</th><th>Login</th><th>Evaluation evidence</th><th>Main uncertainty</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Online-Mind2Web</strong></td><td>300</td><td><span class="pill live">Live web</span></td><td>未显式标注</td><td>WebJudge / 关键点完成度</td><td>页面漂移、路径变化</td>
+            </tr>
+            <tr>
+              <td><strong>WebArena-Verified</strong></td><td>812</td><td><span class="pill controlled">Self-hosted</span></td><td>预置账号</td><td>Agent response、网络事件、站点状态</td><td>环境版本与镜像一致性</td>
+            </tr>
+            <tr class="selected-row">
+              <td><strong>LexBench 登录子集</strong></td><td>166</td><td><span class="pill live">Live web</span></td><td>全部需要</td><td>截图、动作、产物的 rubric 裁判</td><td>登录态过期、验证码、风控</td>
+            </tr>
+            <tr>
+              <td><strong>ClawBench</strong></td><td>283</td><td><span class="pill live">Live web</span></td><td>按站点会话</td><td>请求拦截 schema + LLM judge</td><td>站点状态与外部服务变化</td>
+            </tr>
+            <tr>
+              <td><strong>LiveClawBench</strong></td><td>134</td><td><span class="pill controlled">Container mock</span></td><td>合成预置状态</td><td>确定性脚本 + rubric + LLM judge</td><td>复杂编排与跨工具状态</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="component-note">解释：真实网页组更适合检验线上鲁棒性；可控环境组更适合稳定回归与算法比较。两类结果应分层报告。</p>
+    </section>
+  </section>
+
+  <section class="stage chapter" aria-labelledby="composition-title">
+    <div class="chapter-head">
+      <span class="chapter-index">03 / COMPOSITION</span>
+      <div>
+        <h2 id="composition-title">任务规模与难度标签呈现不同的组成结构。</h2>
+        <p>只有 Online-Mind2Web、LexBench 与 LiveClawBench 提供可直接对齐的 easy / medium / hard 标签；WebArena 与 ClawBench 不纳入三级难度对比。</p>
+      </div>
+    </div>
+
+    <figure
+      data-helm-component="trace"
+      data-helm-claim="C04"
+      data-evidence-state="measured"
+      data-source="Current source files, recomputed 2026-07-15"
+      data-scope="Dataset share of 1,695 tasks and three datasets with comparable difficulty labels"
+      aria-labelledby="C04-title">
+      <div class="component-head">
+        <div>
+          <p class="component-label">Trace · composition</p>
+          <h2 id="C04-title">总任务量由 WebArena 主导；LexBench 登录子集则高度集中在 Medium。</h2>
+        </div>
+        <div class="component-meta"><b>MEASURED</b>Part-to-whole</div>
+      </div>
+
+      <div class="trace-stack">
+        <div>
+          <div class="trace-label"><strong>1,695 个任务的来源组成</strong><span>100%</span></div>
+          <div class="trace" role="img" aria-label="WebArena 47.9%，Online-Mind2Web 17.7%，ClawBench 16.7%，LexBench 登录子集 9.8%，LiveClawBench 7.9%">
+            <span style="--value:47.9%"><b>47.9%</b><small>WebArena · 812</small></span>
+            <span style="--value:17.7%"><b>17.7%</b><small>OM2W · 300</small></span>
+            <span style="--value:16.7%"><b>16.7%</b><small>Claw · 283</small></span>
+            <span style="--value:9.8%"><b>9.8%</b><small>Lex · 166</small></span>
+            <span style="--value:7.9%"><b>7.9%</b><small>Live · 134</small></span>
+          </div>
+        </div>
+
+        <div class="difficulty">
+          <div class="trace-label"><strong>Online-Mind2Web 难度</strong><span>80 / 141 / 79</span></div>
+          <div class="trace" role="img" aria-label="Online-Mind2Web Easy 80，Medium 141，Hard 79">
+            <span style="--value:26.67%"><b>26.7%</b><small>Easy · 80</small></span>
+            <span style="--value:47%"><b>47.0%</b><small>Medium · 141</small></span>
+            <span style="--value:26.33%"><b>26.3%</b><small>Hard · 79</small></span>
+          </div>
+        </div>
+
+        <div class="difficulty">
+          <div class="trace-label"><strong>LexBench 登录子集难度</strong><span>12 / 135 / 19</span></div>
+          <div class="trace" role="img" aria-label="LexBench 登录子集 Easy 12，Medium 135，Hard 19">
+            <span style="--value:7.23%"><b>7.2%</b><small>Easy · 12</small></span>
+            <span style="--value:81.33%"><b>81.3%</b><small>Medium · 135</small></span>
+            <span style="--value:11.44%"><b>11.4%</b><small>Hard · 19</small></span>
+          </div>
+        </div>
+
+        <div class="difficulty">
+          <div class="trace-label"><strong>LiveClawBench 难度</strong><span>53 / 58 / 23</span></div>
+          <div class="trace" role="img" aria-label="LiveClawBench Easy 53，Medium 58，Hard 23">
+            <span style="--value:39.55%"><b>39.6%</b><small>Easy · 53</small></span>
+            <span style="--value:43.28%"><b>43.3%</b><small>Medium · 58</small></span>
+            <span style="--value:17.17%"><b>17.2%</b><small>Hard · 23</small></span>
+          </div>
+        </div>
+      </div>
+
+      <table data-helm-fallback class="visually-hidden">
+        <caption>任务来源与可比难度分布</caption>
+        <thead><tr><th>Scope</th><th>Easy</th><th>Medium</th><th>Hard</th><th>Total</th></tr></thead>
+        <tbody>
+          <tr><td>Online-Mind2Web</td><td>80</td><td>141</td><td>79</td><td>300</td></tr>
+          <tr><td>LexBench 登录子集</td><td>12</td><td>135</td><td>19</td><td>166</td></tr>
+          <tr><td>LiveClawBench</td><td>53</td><td>58</td><td>23</td><td>134</td></tr>
+        </tbody>
+      </table>
+      <figcaption>难度标签来自各数据集自身标注，不代表三套 benchmark 使用完全相同的难度定义；这里只展示组成，不据此推导跨集难度排名。</figcaption>
+    </figure>
+  </section>
+
+  <section class="stage chapter" aria-labelledby="cases-title">
+    <div class="chapter-head">
+      <span class="chapter-index">04 / DATASET LEDGER</span>
+      <div>
+        <h2 id="cases-title">每套数据解决的问题不同。</h2>
+        <p>代表任务用于说明任务形态，不是随机抽样，也不用于估计成功率。</p>
+      </div>
+    </div>
+
+    <figure
+      data-helm-component="case-ledger"
+      data-helm-claim="C05"
+      data-evidence-state="verified"
+      data-source="Dataset task records and schemas inspected 2026-07-15"
+      data-scope="Five comparable dataset summaries with representative cases"
+      aria-labelledby="C05-title">
+      <div class="component-head">
+        <div>
+          <p class="component-label">Case ledger · comparable examples</p>
+          <h2 id="C05-title">从单站长程浏览到跨工具工作流，任务边界逐步扩大。</h2>
+        </div>
+        <div class="component-meta"><b>VERIFIED</b>Representative, not sampled</div>
+      </div>
+
+      <div class="case-grid" data-helm-fallback>
+        <article class="case">
+          <header><span>DATASET 01</span><span class="pill live">Live web</span></header>
+          <h3>Online-Mind2Web</h3>
+          <p>300 条，145 个 hostname；参考轨迹中位数 8 步，最长 36 步。</p>
+          <ul>
+            <li>查找距离 ZIP 90028 最近的 Trader Joe's 并设为 home store。</li>
+            <li>比较 FlightAware 的 AeroAPI 计划。</li>
+          </ul>
+        </article>
+
+        <article class="case">
+          <header><span>DATASET 02</span><span class="pill controlled">Self-hosted</span></header>
+          <h3>WebArena-Verified</h3>
+          <p>812 条，190 个 intent 模板；374 个状态修改任务、325 个检索任务、113 个导航任务。</p>
+          <ul>
+            <li>获取 2022 年销量最高的商品名称。</li>
+            <li>查找 CMU 50 公里驾驶距离内的国际机场。</li>
+          </ul>
+        </article>
+
+        <article class="case">
+          <header><span>DATASET 03</span><span class="pill warning">Login required</span></header>
+          <h3>LexBench 登录子集</h3>
+          <p>166 条、108 个网站；T1 99 条、T2 67 条；中文 144 条、英文 22 条。</p>
+          <ul>
+            <li>去京东搜索 iPhone 17，获取第一个结果的价格。</li>
+            <li>在 LinkedIn 筛选远程 Data Scientist 职位。</li>
+          </ul>
+        </article>
+
+        <article class="case">
+          <header><span>DATASET 04</span><span class="pill live">Live + intercept</span></header>
+          <h3>ClawBench</h3>
+          <p>283 条、35 个元类别；时间限制中位数 30 分钟；282 条单站，1 条双站。</p>
+          <ul>
+            <li>根据 resume.pdf 在 Greenhouse 申请职位。</li>
+            <li>创建 GitHub 仓库并加入 README、MIT License 与 .gitignore。</li>
+          </ul>
+        </article>
+
+        <article class="case">
+          <header><span>DATASET 05</span><span class="pill controlled">Container mock</span></header>
+          <h3>LiveClawBench</h3>
+          <p>134 个任务、6,834 条轨迹；17 个模型，每题 3 次运行；最多跨 4 个领域。</p>
+          <ul>
+            <li>从邮件提取航班变更并同步更新日历。</li>
+            <li>清洗 CSV，并把过程沉淀为可复用 automation skill。</li>
+          </ul>
+        </article>
+      </div>
+      <figcaption>代表 case 经过压缩改写，只保留任务意图。完整 query 与任务字段应回到对应源文件查看。</figcaption>
+    </figure>
+
+    <div class="method-grid" aria-label="三种评测路线">
+      <div><strong>真实网页鲁棒性</strong><p>Online-Mind2Web、LexBench、ClawBench。适合观察线上行为，但需要记录时间、地区、登录态与失败原因。</p></div>
+      <div><strong>可控浏览器回归</strong><p>WebArena。适合稳定比较 agent 版本，必须固定站点镜像、初始状态和 evaluator 版本。</p></div>
+      <div><strong>跨工具工作流</strong><p>LiveClawBench。适合测试多服务编排、污染状态、隐式目标和产物质量。</p></div>
+    </div>
+  </section>
+
+  <section class="stage chapter" aria-labelledby="quality-title">
+    <div class="chapter-head">
+      <span class="chapter-index">05 / DATA QUALITY</span>
+      <div>
+        <h2 id="quality-title">当前文件与数据卡存在五处需要保留的口径差异。</h2>
+        <p>文档优先采用从当前源文件重新计算的数字；这些差异会影响统计复现，但不自动意味着任务内容无效。</p>
+      </div>
+    </div>
+
+    <section
+      data-helm-component="evidence-ledger"
+      data-helm-claim="C06"
+      data-evidence-state="measured"
+      data-source="Dataset files and cards compared 2026-07-15"
+      data-scope="Known counting, parsing, and version-boundary discrepancies"
+      aria-labelledby="C06-title">
+      <div class="component-head">
+        <div>
+          <p class="component-label">Evidence ledger · data quality</p>
+          <h2 id="C06-title">所有展示数字都应绑定提交快照，而不是只引用数据卡。</h2>
+        </div>
+        <div class="component-meta"><b>MEASURED</b>Reproducibility boundary</div>
+      </div>
+      <div class="table-wrap">
+        <table data-helm-fallback>
+          <caption>数据卡与当前文件的差异</caption>
+          <thead><tr><th>Dataset</th><th>Importance</th><th>Observed difference</th><th>Reporting rule</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Online-Mind2Web</strong></td><td class="quality-high">高</td><td>数据卡写 136 个网站；当前文件按 hostname 重算为 145。另有 2 行字符串引号未转义。</td><td>统计前先修复解析，再按 hostname 去重。</td></tr>
+            <tr><td><strong>WebArena-Verified</strong></td><td class="quality-medium">中</td><td>这里使用 812 条 verified 镜像全集，不等同于 WebArena 所有历史版本。</td><td>结果必须注明镜像仓库与提交 SHA。</td></tr>
+            <tr><td><strong>LexBench</strong></td><td class="quality-high">高</td><td>377 − 210 = 167 不是登录任务数；其中 1 条 private-only Pinterest case 标记为无需登录，实际为 166。</td><td>只按 login_required=true 过滤。</td></tr>
+            <tr><td><strong>ClawBench</strong></td><td class="quality-medium">中</td><td>数据卡写 144 个平台；当前 parquet 的 platform 字段有 163 个去重字符串。</td><td>称为 platform 字符串值，不直接称规范化网站数。</td></tr>
+            <tr><td><strong>LiveClawBench</strong></td><td class="quality-high">高</td><td>README 内难度统计冲突；134 个任务 TOML 重算为 53 / 58 / 23。</td><td>以任务定义文件为准，并保留重算脚本口径。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="component-note">置信度：任务数与字段分布为高；网站或 platform 去重受命名规范影响，解释置信度为中。</p>
+    </section>
+
+    <aside class="boundary" aria-labelledby="boundary-title">
+      <p class="component-label">Action and boundary</p>
+      <h2 id="boundary-title">后续评测应先按环境分层，再在同层内比较 agent。</h2>
+      <p>真实网页组单独记录登录态、风控和页面漂移；WebArena 固定镜像与初始化状态；LiveClawBench 固定容器和 verifier 版本。不要把五套数据合成一个未经分层的总成功率。</p>
+    </aside>
+  </section>
+
+  <footer class="content sources">
+    <p class="component-label">Sources and method</p>
+    <h2>来源、提交与统计方法</h2>
+    <ol>
+      <li><a href="https://huggingface.co/datasets/osunlp/Online-Mind2Web">osunlp/Online-Mind2Web</a>，提交 <span class="source-sha">84038480c979f3744ffadac18883b7095f90b332</span>，数据更新 2026-07-08。</li>
+      <li><a href="https://huggingface.co/datasets/AmineHA/WebArena-Verified">AmineHA/WebArena-Verified</a>，提交 <span class="source-sha">0566051c3050bc41ee425cacc58c82528666d1b5</span>，数据更新 2026-02-07。</li>
+      <li><a href="https://huggingface.co/datasets/Lexmount/LexBench-Browser-Private">Lexmount/LexBench-Browser-Private</a>，提交 <span class="source-sha">fd9f911ed9f279422294ff81457d769e0e1738da</span>，数据更新 2026-06-20；私有访问。</li>
+      <li><a href="https://huggingface.co/datasets/TIGER-Lab/ClawBench">TIGER-Lab/ClawBench</a>，提交 <span class="source-sha">cc146e2128724f47f2a7246f1a3057c643b22f70</span>，数据更新 2026-06-10。</li>
+      <li><a href="https://huggingface.co/datasets/Mosi-AI/LiveClawbench-trajectories">Mosi-AI/LiveClawbench-trajectories</a>，提交 <span class="source-sha">c3cfa229a90a8d540c88b9c490ac3dd88db1425a</span>，数据更新 2026-06-26。</li>
+    </ol>
+    <p>方法：读取当前 JSON、JSONL、Parquet 与任务 TOML，按任务 ID、hostname、字段值和任务定义重新计数。访问与统计日期均为 2026-07-15。此报告不包含各 agent 的成功率，也不把代表 case 当作随机抽样。</p>
+  </footer>
+</main>
+</body>
+</html>

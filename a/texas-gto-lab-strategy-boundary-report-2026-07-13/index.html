@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="helm:title" content="Texas GTO Lab：可用于单挑训练，但不能宣称多人 GTO">
+    <meta name="helm:type" content="report">
+    <meta name="helm:summary" content="当前可继续用于单挑训练与有来源的翻前范围表；多人翻后只能作为近似参考，不得宣称 GTO。">
+    <meta name="helm:tags" content="texas-gto-lab, poker, gto, strategy, multiplayer, deployment, active">
+    <title>Texas GTO Lab：可用于单挑训练，但不能宣称多人 GTO</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --paper: #f6f5f0;
+        --surface: #fdfcf9;
+        --ink: #1b2428;
+        --muted: #627076;
+        --line: #d6dad5;
+        --forest: #245c49;
+        --forest-soft: #e6f0e9;
+        --amber: #916315;
+        --amber-soft: #f5edda;
+        --red: #9b453c;
+        --red-soft: #f7e7e4;
+        --blue: #356581;
+        --blue-soft: #e6eef3;
+        --dark: #202c33;
+      }
+
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--paper); color: var(--ink); font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      main { width: min(1120px, calc(100% - 56px)); margin: 0 auto; padding: 34px 0 104px; }
+      a { color: var(--forest); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+      code { padding: 2px 5px; background: #edf0eb; color: #2b4037; font: .88em ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+      .topline { display: flex; justify-content: space-between; gap: 20px; padding-bottom: 18px; border-bottom: 1px solid var(--line); color: var(--muted); font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .09em; text-transform: uppercase; }
+      .hero { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 56px; padding: 70px 0 42px; border-bottom: 1px solid var(--line); }
+      .eyebrow, .section-index, .label { margin: 0 0 13px; color: var(--muted); font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .1em; text-transform: uppercase; }
+      .eyebrow { color: var(--forest); }
+      h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 500; letter-spacing: -.04em; }
+      h1 { max-width: 790px; margin: 0; font-size: clamp(44px, 6.6vw, 76px); line-height: .98; }
+      h2 { margin: 0; font-size: 31px; line-height: 1.08; }
+      h3 { margin: 0; font-size: 19px; line-height: 1.18; }
+      .dek { max-width: 760px; margin: 22px 0 0; color: #455158; font-size: 20px; line-height: 1.58; }
+      .report-facts { align-self: end; padding-left: 20px; border-left: 2px solid var(--forest); }
+      .report-facts div { margin: 0 0 18px; }
+      .report-facts dt { color: var(--muted); font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .08em; text-transform: uppercase; }
+      .report-facts dd { margin: 5px 0 0; color: #3f4b50; font-size: 13px; line-height: 1.5; }
+
+      .answer { display: grid; grid-template-columns: 188px minmax(0, 1fr); gap: 32px; margin-top: 34px; padding: 30px 0; border-bottom: 1px solid var(--line); }
+      .answer .label { color: var(--forest); }
+      .answer p:last-child { max-width: 800px; margin: 0; color: var(--ink); font-family: Georgia, "Times New Roman", serif; font-size: 29px; line-height: 1.28; letter-spacing: -.026em; }
+      .reader-path { display: grid; grid-template-columns: 188px minmax(0, 1fr); gap: 32px; padding: 22px 0; border-bottom: 1px solid var(--line); }
+      .reader-path p { margin: 0; color: #3e4b51; font-size: 14px; line-height: 1.65; }
+      .reader-path .section-index { color: var(--amber); }
+
+      section { padding: 54px 0; border-bottom: 1px solid var(--line); }
+      .section-head { display: grid; grid-template-columns: 188px minmax(0, 1fr); gap: 32px; margin-bottom: 25px; }
+      .section-head > p { max-width: 630px; margin: 4px 0 0; color: var(--muted); font-size: 15px; line-height: 1.65; }
+      .prose { max-width: 760px; margin: 0 0 0 220px; color: #48545a; font-size: 16px; line-height: 1.75; }
+
+      .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; margin-left: 220px; border: 1px solid var(--line); background: var(--line); }
+      .metric { min-height: 160px; padding: 18px; background: var(--surface); }
+      .metric .label { margin-bottom: 12px; }
+      .metric strong { display: block; color: var(--ink); font-family: Georgia, "Times New Roman", serif; font-size: 30px; font-weight: 500; letter-spacing: -.03em; }
+      .metric p { margin: 9px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+      .metric small { display: block; margin-top: 12px; color: #849095; font-size: 11px; line-height: 1.45; }
+
+      .table-wrap { width: calc(100% - 220px); margin-left: 220px; overflow-x: auto; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+      table { width: 100%; border-collapse: collapse; min-width: 700px; }
+      th, td { padding: 15px 11px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; font-size: 14px; line-height: 1.55; }
+      tr:last-child td { border-bottom: 0; }
+      th { color: var(--muted); font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .08em; text-transform: uppercase; }
+      td { color: #4b585e; }
+      td:first-child { color: var(--ink); font-weight: 700; }
+      .tag { display: inline-block; padding: 4px 7px; font-size: 11px; font-weight: 750; line-height: 1.2; }
+      .tag.exact { color: var(--forest); background: var(--forest-soft); }
+      .tag.limited { color: var(--amber); background: var(--amber-soft); }
+      .tag.reference { color: var(--blue); background: var(--blue-soft); }
+      .tag.blocked { color: var(--red); background: var(--red-soft); }
+
+      .case { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1px; margin-left: 220px; border: 1px solid var(--line); background: var(--line); }
+      .case > div { padding: 24px; background: var(--surface); }
+      .case .bad { border-top: 3px solid var(--red); }
+      .case .good { border-top: 3px solid var(--forest); }
+      .case .frequency { display: block; margin: 22px 0 8px; color: var(--ink); font-family: Georgia, "Times New Roman", serif; font-size: 34px; letter-spacing: -.04em; }
+      .case p { margin: 8px 0 0; color: var(--muted); font-size: 14px; line-height: 1.62; }
+      .case-note { margin: 16px 0 0 220px; color: var(--muted); font-size: 13px; line-height: 1.58; }
+
+      .interpretation { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-left: 220px; }
+      .interpretation article { padding: 25px; border-top: 3px solid var(--forest); background: #eaf1ec; }
+      .interpretation article:last-child { border-top-color: var(--amber); background: #f6f0e2; }
+      .interpretation h3 { margin-bottom: 13px; }
+      .interpretation ul { margin: 0; padding-left: 20px; }
+      .interpretation li { margin: 10px 0; color: #455258; font-size: 14px; line-height: 1.58; }
+
+      .priority-list { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 0 28px; margin-left: 220px; border-top: 1px solid var(--line); }
+      .priority-list dt, .priority-list dd { margin: 0; padding: 19px 0; border-bottom: 1px solid var(--line); }
+      .priority-list dt { color: var(--forest); font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .08em; text-transform: uppercase; }
+      .priority-list dd { color: #455258; font-size: 15px; line-height: 1.62; }
+      .priority-list strong { color: var(--ink); }
+
+      .boundary { margin-left: 220px; padding: 24px 26px; border-left: 3px solid var(--red); background: var(--red-soft); }
+      .boundary .label { color: var(--red); }
+      .boundary p:last-child { max-width: 760px; margin: 0; color: #69423d; line-height: 1.66; }
+      footer { display: grid; grid-template-columns: 188px minmax(0, 1fr); gap: 32px; padding-top: 40px; color: var(--muted); }
+      footer p, footer li { max-width: 760px; color: var(--muted); font-size: 13px; line-height: 1.65; }
+      footer p { margin: 0 0 12px; } footer ol { margin: 0; padding-left: 20px; } footer li { margin: 0 0 8px; }
+
+      @media (max-width: 820px) {
+        main { width: min(100% - 32px, 1120px); padding-bottom: 72px; }
+        .topline, .hero, .answer, .reader-path, .section-head, footer { display: block; }
+        .hero { padding: 48px 0 34px; } .report-facts { margin-top: 30px; }
+        .answer .label, .reader-path .section-index, .section-head h2, footer .label { margin-bottom: 12px; }
+        .prose, .metric-grid, .table-wrap, .case, .case-note, .interpretation, .priority-list, .boundary { width: 100%; margin-left: 0; }
+        .metric-grid { grid-template-columns: repeat(2, 1fr); } .case, .interpretation { grid-template-columns: 1fr; }
+      }
+      @media (max-width: 520px) { h1 { font-size: 42px; } .metric-grid { grid-template-columns: 1fr; } .topline span:last-child { display: none; } section { padding: 40px 0; } }
+      @media print { body { background: #fff; } main { width: auto; padding: 20px; } .metric, .case > div, .interpretation article, table { break-inside: avoid; } a { color: inherit; } }
+    </style>
+    <script type="application/json" data-helm-manifest>
+      {
+        "schema_version": "HDOC/1.0",
+        "id": "texas-gto-lab-strategy-boundary-report-2026-07-13",
+        "title": "Texas GTO Lab：可用于单挑训练，但不能宣称多人 GTO",
+        "type": "report",
+        "tags": ["texas-gto-lab", "poker", "gto", "strategy", "multiplayer", "deployment", "active"],
+        "summary": "当前可继续用于单挑训练与有来源的翻前范围表；多人翻后只能作为近似参考，不得宣称 GTO。",
+        "created_at": "2026-07-13T11:20:50Z",
+        "updated_at": "2026-07-13T13:02:55Z",
+        "provenance": {
+          "author": "Codex",
+          "sources": [
+            { "label": "Texas GTO Lab solver scope documentation", "url": "https://github.com/waple0820/texas-gto-lab/blob/main/docs/GTO_SOLVER.md", "accessed_at": "2026-07-13" },
+            { "label": "PR #100 — heads-up strategy boundary fix", "url": "https://github.com/waple0820/texas-gto-lab/pull/100", "accessed_at": "2026-07-13" },
+            { "label": "PR #101 — deployment identity verification", "url": "https://github.com/waple0820/texas-gto-lab/pull/101", "accessed_at": "2026-07-13" }
+          ]
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main data-document-root>
+      <div class="topline"><span>Project evidence report · strategy boundary</span><span>Evidence through 2026-07-13</span></div>
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Texas GTO Lab · current product claim</p>
+          <h1>可用于单挑训练，不能宣称多人 GTO。</h1>
+          <p class="dek">这份报告回答的不是“系统会不会给建议”，而是：在已修复策略越界与部署假成功后，Texas GTO Lab 现在能向用户承诺什么、还不能承诺什么，以及下一步应把工程资源投向哪里。</p>
+        </div>
+        <dl class="report-facts">
+          <div><dt>报告问题</dt><dd>当前策略输出的可信边界与产品说法。</dd></div>
+          <div><dt>数据截至</dt><dd>2026-07-13 的本地代码、固定牌例、测试与公网复测。</dd></div>
+          <div><dt>结论置信度</dt><dd>工程边界高；单挑策略中等；多人均衡低。</dd></div>
+        </dl>
+      </header>
+
+      <section class="answer" aria-labelledby="answer-heading">
+        <p class="label" id="answer-heading">短答案 / 决策</p>
+        <p>近期主线应是单挑求解质量：翻前继续使用有来源的范围表；多人翻后只提供明确标记的“范围权益近似”。在独立的多人求解、训练与可利用度验证出现前，任何“多人 GTO”商业表述都不成立。</p>
+      </section>
+
+      <aside class="reader-path" aria-label="报告阅读路径"><p class="section-index">阅读路径</p><p>先确认可对外说的策略边界，再看修复是否真的改变了行为与验证结果；随后区分这些证据能证明什么、不能证明什么，最后给出下一阶段的工程顺序。</p></aside>
+
+      <section aria-labelledby="state-heading">
+        <div class="section-head"><div><p class="section-index">01 / state</p><h2 id="state-heading">当前状态：安全边界已收紧，策略证明尚未扩大</h2></div><p>这些数字是当前判断的入口，不是产品卖点。每一项都对应下文的测试范围或回归牌例。</p></div>
+        <div class="metric-grid" aria-label="当前状态关键指标">
+          <article class="metric"><p class="label">策略审计</p><strong>0 critical</strong><p>100 手、459 个决策；仍有 36 个需要解释的 warning。</p><small>来源：本地 <code>npm test</code></small></article>
+          <article class="metric"><p class="label">关键回归</p><strong>87% fold</strong><p>三人转牌弱牌不再给出约 73% 跟注。</p><small>来源：固定回归牌例</small></article>
+          <article class="metric"><p class="label">部署身份</p><strong>已校验</strong><p>页面资源哈希与本次构建一致，旧 PM2 进程已移除。</p><small>来源：PR #101 与公网复测</small></article>
+          <article class="metric"><p class="label">多人均衡</p><strong>未求解</strong><p>只存在范围、权益和牌力角色近似。</p><small>来源：策略作用域与求解范围</small></article>
+        </div>
+      </section>
+
+      <section aria-labelledby="contract-heading">
+        <div class="section-head"><div><p class="section-index">02 / claim contract</p><h2 id="contract-heading">不同策略域，必须使用不同产品语言</h2></div><p>“有策略输出”不等于“有均衡保证”。这张矩阵决定产品标签、复盘文案和商业描述可以说到哪里。</p></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th scope="col">决策域</th><th scope="col">当前实现</th><th scope="col">证据能支持的说法</th><th scope="col">必须保留的边界</th><th scope="col">验证来源 / 日期</th><th scope="col">产品标签</th></tr></thead>
+            <tbody>
+              <tr><td>翻前单挑 / 六人桌</td><td>位置与行动线范围表</td><td>可作为有来源的 chart-backed 训练。</td><td>没有全树 exploitability 证明。</td><td><a href="https://github.com/waple0820/texas-gto-lab/blob/main/docs/GTO_SOLVER.md">Solver scope 文档</a><br>2026-07-13</td><td><span class="tag reference">翻前范围表</span></td></tr>
+              <tr><td>单挑河牌典型子博弈</td><td>逐组合 exact CFR</td><td>指定抽象与节点的精确解。</td><td>约 0.14% pot exploitability 不外推到其他树。</td><td>本地求解器自测<br>2026-07-13</td><td><span class="tag exact">GTO 精确解</span></td></tr>
+              <tr><td>单挑河牌其他节点</td><td>求解数据蒸馏模型</td><td>已测子博弈中比旧启发式更接近 GTO。</td><td>约 9% pot；不是任意树保证。</td><td>本地子博弈评估<br>2026-07-13</td><td><span class="tag limited">GTO 泛化</span></td></tr>
+              <tr><td>单挑翻牌 / 转牌</td><td>街级联蒸馏模型</td><td>有 held-out 与收敛自测的受限泛化。</td><td>尚无完整无限注树的全局均衡证明。</td><td>本地 held-out / 收敛自测<br>2026-07-13</td><td><span class="tag limited">受限泛化</span></td></tr>
+              <tr><td>多人翻后</td><td>范围、权益、牌力角色近似</td><td>可提供带边界说明的多人参考。</td><td>没有多人 CFR / Nash 保证；单挑模型已被禁止复用。</td><td><a href="https://github.com/waple0820/texas-gto-lab/pull/100">PR #100</a> + 回归牌例<br>2026-07-13</td><td><span class="tag blocked">多人参考，非 GTO</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section aria-labelledby="regression-heading">
+        <div class="section-head"><div><p class="section-index">03 / regression</p><h2 id="regression-heading">一个牌例证明“越界被挡住”，不证明“多人已求解”</h2></div><p>固定回归牌例用于验证修复改变了错误行为。它是工程防线的证据，而不是多人策略正确性的完整证据。</p></div>
+        <p class="prose"><strong>局面：</strong>三人底池，Hero <code>7♠ 5♣</code>，公共牌 <code>K♣ K♦ 6♥ 2♣</code>，底池 11bb，面对 2.2bb 下注，两个存活对手。</p>
+        <div class="case">
+          <div class="bad"><p class="label">修复前 / 错误路径</p><h3>单挑蒸馏模型穿透多人分支</h3><span class="frequency">跟注约 73%</span><p>界面把结果表现为 GTO，来源与频率不一致。根因不是一个孤立频率，而是翻牌、转牌模型仍可能进入多人 <code>baseActions</code>。</p></div>
+          <div class="good"><p class="label">修复后 / 边界生效</p><h3>多人分支只输出近似参考</h3><span class="frequency">弃牌约 87% · 跟注约 5%</span><p>单挑 exact、distilled、trained 三类策略都被多人作用域门禁挡住；输出明确标记为“多人参考，非多人均衡求解”。</p></div>
+        </div>
+        <p class="case-note">证据：<a href="https://github.com/waple0820/texas-gto-lab/pull/100">PR #100</a> 与浏览器固定牌例复测。限制：该牌例只证明错误分支已被阻断，不能给出多人策略的 Nash 或 exploitability 结论。</p>
+      </section>
+
+      <section aria-labelledby="evidence-heading">
+        <div class="section-head"><div><p class="section-index">04 / evidence ledger</p><h2 id="evidence-heading">验证账本：结果、含义与不应外推的范围</h2></div><p>所有误差数字都只描述对应的测试抽象。把结论的适用范围写在结果旁边，避免把局部收敛包装成全局能力。</p></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th scope="col">验证面</th><th scope="col">结果</th><th scope="col">它支持什么</th><th scope="col">它不支持什么</th><th scope="col">来源 / 日期</th></tr></thead>
+            <tbody>
+              <tr><td>核心与策略审计</td><td><code>npm test</code>：100 手、459 决策、0 critical、36 warnings。</td><td>没有已发现的结构性动作错误。</td><td>36 个 warning 不能被视为已解决。</td><td>本地测试<br>2026-07-13</td></tr>
+              <tr><td>河牌 CFR</td><td>固定板面 exploitability 0.4727%、0.2225% pot，均低于 0.6% 阈值。</td><td>指定河牌子博弈在测试抽象下收敛。</td><td>任意牌桌、任意行动树的精确解。</td><td>本地求解器自测<br>2026-07-13</td></tr>
+              <tr><td>转牌 CFR</td><td>固定样例 1.1703%、1.4054% pot，均低于 2% 阈值。</td><td>街级求解器自测通过。</td><td>完整无限注树的全局均衡证明。</td><td>本地求解器自测<br>2026-07-13</td></tr>
+              <tr><td>多加注河牌树</td><td>0.2801%、0.2854% pot，均低于 1.2% 阈值。</td><td>多次加注抽象的收敛门禁有效。</td><td>其他抽象和更多玩家数的可利用度。</td><td>本地求解器自测<br>2026-07-13</td></tr>
+              <tr><td>翻牌 / 抽样转牌</td><td>翻牌 84.71% → 16.71%；转牌 164.8% → 15.3% pot。</td><td>趋势收敛通过。</td><td>商业级全树绝对误差保证。</td><td>本地收敛评估<br>2026-07-13</td></tr>
+              <tr><td>界面与交付</td><td>桌面、390×844 竖屏无横向溢出；服务运行时长已重置，资源哈希与本地构建一致。</td><td>关键学习路径可用，访问的是本次部署。</td><td>长期可用性或外部监控已完备。</td><td><a href="https://github.com/waple0820/texas-gto-lab/pull/101">PR #101</a> + 公网复测<br>2026-07-13</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section aria-labelledby="meaning-heading">
+        <div class="section-head"><div><p class="section-index">05 / interpretation</p><h2 id="meaning-heading">这些证据改变了什么，没有改变什么</h2></div><p>这是从测试结果到产品决策的推理层。它必须和原始观测分开，避免把工程事实误说成策略事实。</p></div>
+        <div class="interpretation">
+          <article><h3>现在可以依赖的</h3><ul><li>多人路径不会再偷偷调用单挑 exact / distilled / trained 策略。</li><li>指定河牌、转牌与多加注抽象具备相应范围内的收敛证据。</li><li>部署门禁能区分新构建与端口上残留的旧服务。</li></ul></article>
+          <article><h3>现在仍不能对外承诺的</h3><ul><li>多人翻后是求解过的 GTO 或具有可利用度保证。</li><li>单挑翻牌、转牌已经覆盖完整无限注树。</li><li>36 个策略 warning 已经无害，或持续交付已经有完整外部监控。</li></ul></article>
+        </div>
+      </section>
+
+      <section aria-labelledby="next-heading">
+        <div class="section-head"><div><p class="section-index">06 / action</p><h2 id="next-heading">下一阶段：先缩小未知，再扩大能力</h2></div><p>优先级按“消除会误导用户的风险”排序，而不是按最容易做出新功能排序。</p></div>
+        <dl class="priority-list">
+          <dt>现在</dt><dd><strong>处理 36 个审计 warning。</strong>为每类 warning 固化随机种子牌例，区分 GTO 允许的近纯策略和真实偏差；每一次修改回到行动树、范围与 EV / exploitability 证据。</dd>
+          <dt>随后</dt><dd><strong>让完整行动历史成为策略节点身份。</strong>位置、下注尺度序列、范围收缩与存活玩家数必须进入同一节点契约，不再只用 <code>single-raised</code> / <code>facing-raise</code> 粗分类。</dd>
+          <dt>主线</dt><dd><strong>用 5090 跑单挑 solve → distill → exploitability 流水线。</strong>训练目标来自求解器 regret / average strategy，而不是人工公式；把误差与模型适用域一并产出。</dd>
+          <dt>独立研究</dt><dd><strong>把多人作为独立研究线。</strong>先定义三人有限尺度树、范围抽象和可利用度评估；指标达标前持续使用“多人参考”标签。</dd>
+          <dt>交付门禁</dt><dd><strong>补 CI 与外部可观测性。</strong>PR 自动跑核心审计与快速求解器自测；部署记录 commit、资源哈希、进程 owner、启动时间，并增加持续可用性检查。</dd>
+          <dt>最后</dt><dd><strong>性能与商业包装后置。</strong>先拆分 2.98 MB 主包（gzip 约 791 KB），再讨论付费、账户、训练档案和扩容。</dd>
+        </dl>
+      </section>
+
+      <section aria-labelledby="boundary-heading">
+        <div class="section-head"><div><p class="section-index">07 / boundary</p><h2 id="boundary-heading">发布与商业化的硬边界</h2></div><p>这是一条产品约束，不是谨慎措辞：不要让交互界面、教练文案或付费页超出实际证据。</p></div>
+        <div class="boundary"><p class="label">Revisit this decision if</p><p>当多人有限树已经拥有独立 CFR / Nash 求解、训练集、固定回归与可利用度阈值验证后，才重新评估多人标签；当 36 个 warning 被逐类解释或修复、CI 与外部监控闭环后，才重新评估商业化和更大规模部署。不要为了让 warning 数字下降而机械加入混合频率。</p></div>
+      </section>
+
+      <footer>
+        <div><p class="label">方法与来源</p></div>
+        <div>
+          <p>本报告依据 2026-07-13 的本地代码、合并记录、固定牌例、100 手策略审计、求解器自测和公网运行态复测。数字只描述对应测试抽象，不代表任意无限注德州扑克局面的全局误差。</p>
+          <ol>
+            <li><a href="https://github.com/waple0820/texas-gto-lab/blob/main/docs/GTO_SOLVER.md">Texas GTO Lab solver scope documentation</a>，访问于 2026-07-13。</li>
+            <li><a href="https://github.com/waple0820/texas-gto-lab/pull/100">PR #100 — heads-up strategy boundary fix</a>，访问于 2026-07-13。</li>
+            <li><a href="https://github.com/waple0820/texas-gto-lab/pull/101">PR #101 — deployment identity verification</a>，访问于 2026-07-13。</li>
+          </ol>
+        </div>
+      </footer>
+    </main>
+  </body>
+</html>

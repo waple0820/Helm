@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="helm:title" content="Lexmount 64 H100 训练交付包：对齐稿">
+    <meta name="helm:type" content="brief">
+    <meta name="helm:summary" content="面向 NVIDIA 无 SSH 执行场景的 64 H100 自主训练交付包提案：单命令启动、可恢复、可审计，并公平对比 Lexmount 与本地 Chrome。">
+    <meta name="helm:tags" content="lexmount, nvidia, h100, training, delivery">
+    <title>Lexmount 64 H100 训练交付包：对齐稿</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --paper: #f5f6f4;
+        --panel: #fbfcfa;
+        --ink: #17242d;
+        --muted: #66747d;
+        --line: #d3dad7;
+        --accent: #176c7c;
+        --accent-soft: #dcecef;
+        --decision: #a95c2e;
+        --decision-soft: #f5e5da;
+        --ok: #3d7652;
+        --ok-soft: #e1eee3;
+        --code: #23333d;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      main {
+        width: min(1120px, calc(100% - 48px));
+        margin: 0 auto;
+        padding: 30px 0 88px;
+      }
+      .topline {
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+        padding-bottom: 18px;
+        border-bottom: 1px solid var(--line);
+        color: var(--muted);
+        font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+      }
+      header {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 250px;
+        gap: 56px;
+        padding: 66px 0 40px;
+      }
+      .eyebrow, .label {
+        margin: 0 0 12px;
+        color: var(--muted);
+        font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
+        letter-spacing: .09em;
+        text-transform: uppercase;
+      }
+      h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 500; }
+      h1 {
+        max-width: 760px;
+        margin: 0;
+        font-size: clamp(42px, 6.4vw, 74px);
+        line-height: 1.04;
+      }
+      h2 {
+        max-width: 720px;
+        margin: 0;
+        font-size: 29px;
+        line-height: 1.18;
+      }
+      h3 { margin: 0; font-size: 18px; line-height: 1.3; }
+      .dek {
+        max-width: 720px;
+        margin: 22px 0 0;
+        color: #45525c;
+        font-size: 19px;
+        line-height: 1.65;
+      }
+      .header-note {
+        align-self: end;
+        margin: 0;
+        padding: 16px 0 0 18px;
+        border-left: 2px solid var(--decision);
+        color: #4d555b;
+        font-size: 14px;
+        line-height: 1.58;
+      }
+      .answer {
+        display: grid;
+        grid-template-columns: 168px minmax(0, 1fr);
+        gap: 28px;
+        padding: 28px 0 30px;
+        border-top: 1px solid var(--ink);
+        border-bottom: 1px solid var(--line);
+      }
+      .answer p:last-child {
+        max-width: 770px;
+        margin: 0;
+        color: #34414a;
+        font-size: 20px;
+        line-height: 1.55;
+      }
+      figure { margin: 0; }
+      .route { padding: 46px 0 50px; border-bottom: 1px solid var(--line); }
+      .figure-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 30px;
+        align-items: end;
+        margin-bottom: 24px;
+      }
+      .figure-meta {
+        max-width: 280px;
+        margin: 0;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.5;
+      }
+      .route-grid {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 0;
+        border: 1px solid var(--line);
+        background: var(--line);
+      }
+      .route-step {
+        min-height: 158px;
+        padding: 18px;
+        background: var(--panel);
+      }
+      .route-step + .route-step { border-left: 1px solid var(--line); }
+      .route-step .num {
+        display: block;
+        margin-bottom: 28px;
+        color: var(--accent);
+        font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      .route-step b { display: block; font-size: 14px; line-height: 1.35; }
+      .route-step span {
+        display: block;
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.48;
+      }
+      figcaption {
+        max-width: 800px;
+        margin-top: 14px;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.58;
+      }
+      section {
+        display: grid;
+        grid-template-columns: 168px minmax(0, 1fr);
+        gap: 28px;
+        padding: 49px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .section-copy > p {
+        max-width: 760px;
+        margin: 16px 0 0;
+        color: #4a575f;
+        font-size: 16px;
+        line-height: 1.68;
+      }
+      .section-copy > p:first-of-type { margin-top: 0; }
+      table { width: 100%; border-collapse: collapse; margin-top: 22px; text-align: left; }
+      th, td { padding: 14px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+      th {
+        color: var(--muted);
+        font: 10px ui-monospace, SFMono-Regular, Menlo, monospace;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+      }
+      td { color: #43505a; font-size: 14px; line-height: 1.55; }
+      td strong { color: var(--ink); font-weight: 700; }
+      .file-list { margin: 22px 0 0; border-top: 1px solid var(--line); }
+      .tree {
+        margin: 22px 0 0;
+        padding: 20px;
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        background: #f0f3f1;
+        color: var(--code);
+        font: 12px/1.65 ui-monospace, SFMono-Regular, Menlo, monospace;
+        white-space: pre;
+      }
+      .file-row {
+        display: grid;
+        grid-template-columns: 250px minmax(0, 1fr);
+        gap: 20px;
+        padding: 15px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      code {
+        color: var(--code);
+        font: 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+        overflow-wrap: anywhere;
+      }
+      .file-row p { margin: 0; color: #4a575f; font-size: 14px; line-height: 1.55; }
+      .split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; margin-top: 22px; }
+      .boundary {
+        padding: 20px;
+        border-top: 3px solid var(--accent);
+        background: var(--panel);
+      }
+      .boundary.warning { border-top-color: var(--decision); background: #fcf8f5; }
+      .boundary p { margin: 10px 0 0; color: #4b565e; font-size: 14px; line-height: 1.58; }
+      .boundary code { font-size: 11px; }
+      .status {
+        display: inline-block;
+        padding: 3px 7px;
+        border: 1px solid currentColor;
+        color: var(--decision);
+        font: 10px ui-monospace, SFMono-Regular, Menlo, monospace;
+        letter-spacing: .05em;
+        text-transform: uppercase;
+      }
+      .status.good { color: var(--ok); }
+      .checklist { margin: 21px 0 0; padding: 0; list-style: none; }
+      .checklist li {
+        position: relative;
+        padding: 0 0 15px 25px;
+        color: #43505a;
+        font-size: 15px;
+        line-height: 1.58;
+      }
+      .checklist li::before {
+        position: absolute;
+        left: 0;
+        top: 5px;
+        width: 10px;
+        height: 10px;
+        border: 1px solid var(--accent);
+        content: "";
+      }
+      .open-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; margin-top: 22px; background: var(--line); border: 1px solid var(--line); }
+      .open-grid div { min-height: 130px; padding: 18px; background: var(--panel); }
+      .open-grid b { display: block; margin-bottom: 8px; font-size: 14px; }
+      .open-grid p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
+      footer {
+        display: grid;
+        grid-template-columns: 168px minmax(0, 1fr);
+        gap: 28px;
+        padding-top: 38px;
+        color: var(--muted);
+      }
+      .metric-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1px;
+        margin-top: 22px;
+        border: 1px solid var(--line);
+        background: var(--line);
+      }
+      .metric-grid div { padding: 18px; background: var(--panel); }
+      .metric-grid b { display: block; margin-bottom: 8px; font-size: 14px; }
+      .metric-grid p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.58; }
+      footer p, footer li { margin: 0; font-size: 13px; line-height: 1.58; }
+      footer ul { margin: 0; padding-left: 18px; }
+      @media (max-width: 820px) {
+        main { width: min(100% - 32px, 1120px); }
+        header, .answer, section, footer { display: block; }
+        header { padding: 48px 0 34px; }
+        .header-note { margin-top: 28px; }
+        .answer .label, section > .label, footer > .label { margin-bottom: 12px; }
+        .route-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .route-step:nth-child(3), .route-step:nth-child(5) { border-left: 0; }
+        .route-step:nth-child(n+3) { border-top: 1px solid var(--line); }
+        section { padding: 39px 0; }
+        .split { grid-template-columns: 1fr; }
+        .file-row { grid-template-columns: 1fr; gap: 8px; }
+      }
+      @media (max-width: 560px) {
+        .topline, .figure-head { display: block; }
+        .topline span + span, .figure-meta { display: block; margin-top: 10px; }
+        .route-grid, .open-grid, .metric-grid { grid-template-columns: 1fr; }
+        .route-step + .route-step { border-left: 0; border-top: 1px solid var(--line); }
+        .route-step { min-height: 126px; }
+        .route-step .num { margin-bottom: 16px; }
+        h1 { font-size: 42px; }
+        .dek { font-size: 18px; }
+        .answer p:last-child { font-size: 18px; }
+      }
+    </style>
+    <script type="application/json" data-helm-manifest>
+      {
+        "schema_version": "HDOC/1.0",
+        "id": "lexmount-64h100-training-delivery-brief",
+        "title": "Lexmount 64 H100 训练交付包：对齐稿",
+        "type": "brief",
+        "tags": ["lexmount", "nvidia", "h100", "training", "delivery"],
+        "summary": "面向 NVIDIA 无 SSH 执行场景的 64 H100 自主训练交付包提案：单命令启动、可恢复、可审计，并公平对比 Lexmount 与本地 Chrome。",
+        "created_at": "2026-07-14T07:45:23Z",
+        "updated_at": "2026-07-14T08:34:00Z",
+        "project": {"id": "gpu-cli", "name": "GPU CLI / Lexmount Training Delivery"},
+        "provenance": {"author": "Codex", "sources": []}
+      }
+    </script>
+  </head>
+  <body>
+    <main data-document-root>
+      <div class="topline"><span>Delivery brief · HDOC/1.0</span><span>2026-07-14 · Alignment draft</span></div>
+
+      <header>
+        <div>
+          <p class="eyebrow">NVIDIA / NeMo-Gym · 64 H100 training</p>
+          <h1>Lexmount 64 H100 训练交付包</h1>
+          <p class="dek">目标不是交付一条看起来能启动的命令，而是让 NVIDIA 在不给我们 SSH 的情况下，独立部署、运行、恢复、评测并审核一组 Lexmount 浏览器训练实验。</p>
+        </div>
+        <p class="header-note"><span class="status">Proposed</span><br><br>本页是交付契约草案，不宣称已完成 64 卡实跑。运行入口、版本锁定、失败证据和验收标准会随模型、数据与集群约束确认后冻结。</p>
+      </header>
+
+      <section class="answer" aria-labelledby="answer-title">
+        <p class="label" id="answer-title">Short answer</p>
+        <p>交付一个<strong>私有、可复制的实验包</strong>：一个总入口完成预检、环境、模型与数据、预处理、分布式训练、阶段评测、Lexmount / 本地 Chrome 对照和诊断归档；支持在可恢复的前提下从 1 卡 smoke 扩展到 <strong>8 节点 × 8 H100</strong>。</p>
+      </section>
+
+      <section>
+        <p class="label">What must work</p>
+        <div class="section-copy">
+          <h2>这不是“启动训练”的脚本，而是一份无人值守的实验运行说明书。</h2>
+          <p>假设 NVIDIA 只拿到我们的私有包、不会给我们 SSH，脚本必须自行完成下面每项工作，并把每项的输入、版本、结果和失败原因写入可审计产物。任何一项缺失，交付都还不完整。</p>
+          <table>
+            <thead><tr><th>必须能力</th><th>脚本实际要做什么</th><th>必须留下的产物</th></tr></thead>
+            <tbody>
+              <tr><td><strong>1. 部署环境</strong></td><td>检查集群前置条件，拉取或构建固定镜像，安装锁定的 CUDA / PyTorch / NeMo / Lexmount SDK；从私有 <code>secrets/lexmount.env</code> 加载 key 和 project_id。</td><td>镜像 digest、Python lock、SDK 版本、预检报告；密钥不写进日志。</td></tr>
+              <tr><td><strong>2. 下载模型和数据</strong></td><td>下载模型权重、tokenizer、训练/评测数据；核对 revision、checksum、许可证和本地缓存命中。</td><td><code>assets_manifest.json</code>：来源、revision、哈希、缓存路径、下载状态。</td></tr>
+              <tr><td><strong>3. 数据预处理</strong></td><td>固定数据切分、格式转换、过滤/验证、tokenization 或轨迹准备；可重复执行且不会损坏已完成缓存。</td><td>样本数、过滤原因、split 哈希、预处理配置与数据质量报告。</td></tr>
+              <tr><td><strong>4. 跑实验与恢复</strong></td><td>按 8 节点 × 8 H100 启动；支持 Slurm 或 <code>torchrun</code>；保存 checkpoint、dataloader 状态和阶段状态；对临时请求故障有界重试。</td><td>run manifest、rank 日志、checkpoint 索引、故障分类和恢复记录。</td></tr>
+              <tr><td><strong>5. 曲线和中间评测</strong></td><td>记录训练曲线，按固定 step 在固定任务集上评测；避免只在最后一步挑一个结果。</td><td>loss/reward 曲线、verifier pass rate、任务成功率、阶段评测明细。</td></tr>
+              <tr><td><strong>6. 对比两种浏览器</strong></td><td>在相同模型、任务、seed、并发、超时和重试下分别运行 Lexmount 与 local Chrome；检查所有参数的 hash。</td><td>参数差异表、可比性结论、后端结果与资源成本对照。</td></tr>
+              <tr><td><strong>7. 规模预检</strong></td><td>验证 64 张 H100、驱动、NCCL、IB/RDMA、共享存储、网络、容器运行时和磁盘空间。</td><td>节点/GPU 拓扑、NCCL 诊断、网络/存储检查与明确的 fail-fast 原因。</td></tr>
+              <tr><td><strong>8. 完整可复现</strong></td><td>锁定代码 commit、镜像、模型/数据 revision、超参和随机 seed；一次 run 对应一份不可混淆的 manifest。</td><td>可复现 manifest 与所有版本、哈希、命令行和环境变量白名单。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <figure class="route" aria-labelledby="route-title">
+        <div class="figure-head">
+          <div>
+            <p class="label">Execution route</p>
+            <h2 id="route-title">一个入口串起六个可审计阶段，任何失败都留下可定位的状态和证据。</h2>
+          </div>
+          <p class="figure-meta">证据状态：提案。每一阶段都应生成结构化 manifest，下一阶段只接收已验证的输入。</p>
+        </div>
+        <div class="route-grid" role="img" aria-label="从预检到最终对照报告的六阶段训练交付流程">
+          <div class="route-step"><span class="num">01</span><b>预检集群</b><span>64 H100、驱动、NCCL、IB/RDMA、共享存储、网络与磁盘</span></div>
+          <div class="route-step"><span class="num">02</span><b>部署环境</b><span>容器/锁定依赖、Lexmount SDK、私有凭据加载</span></div>
+          <div class="route-step"><span class="num">03</span><b>获取资产</b><span>模型、数据、校验和、缓存和 revision manifest</span></div>
+          <div class="route-step"><span class="num">04</span><b>预处理训练</b><span>数据校验、torchrun/Slurm、checkpoint、自动恢复</span></div>
+          <div class="route-step"><span class="num">05</span><b>阶段评测</b><span>固定评测集、训练曲线、浏览器与系统资源指标</span></div>
+          <div class="route-step"><span class="num">06</span><b>生成对照</b><span>锁定参数下的 Lexmount 与 Local Chrome 差异报告</span></div>
+        </div>
+        <figcaption>总入口 <code>run_64h100.sh</code> 是唯一手动操作点；内部阶段可单独重试，但正式运行以同一份 run manifest 关联所有产物。</figcaption>
+      </figure>
+
+      <section>
+        <p class="label">01 / package</p>
+        <div class="section-copy">
+          <h2>交付目录以“可运行包”组织，而不是一组彼此松散的脚本。</h2>
+          <p>主脚本负责阶段编排、幂等检查和退出状态；支撑文件明确复现所需的配置、依赖、启动后端和诊断逻辑。NVIDIA 只需拿到私有包，在满足前置条件的集群上运行一个命令。</p>
+          <pre class="tree" aria-label="64 H100 训练交付包目录树">lexmount-nemo-64h100/
+├── README.md
+├── run_64h100.sh                 # 唯一人工入口
+├── Dockerfile
+├── requirements.lock
+├── configs/
+│   ├── experiment.yaml           # 模型、数据、超参、评测、seed、重试
+│   ├── cluster_64h100.yaml       # 8 节点 x 8 H100、NCCL 与 launcher
+│   └── lexmount.env.example      # 只有字段名，没有真实凭据
+├── secrets/
+│   └── lexmount.env              # 私有包内提供，权限 0600，不进 Git
+├── scripts/
+│   ├── preflight.sh              # GPU/NCCL/IB/存储/网络 fail-fast
+│   ├── bootstrap.sh              # 镜像、SDK 与训练运行时
+│   ├── download_assets.sh        # 模型/数据下载、缓存和校验
+│   ├── prepare_data.py           # 预处理、split 与质量校验
+│   ├── train.sh                  # Slurm 或 torchrun 启动
+│   ├── evaluate.py               # 固定集的阶段评测
+│   ├── compare_backends.py       # Lexmount / Local Chrome 参数与结果对照
+│   └── collect_diagnostics.sh    # 故障时采集系统与分布式日志
+└── artifacts/                    # 运行生成；不随源码交付
+    ├── manifests/  ├── checkpoints/  ├── metrics/
+    ├── eval/       ├── comparison_report/  └── diagnostics/</pre>
+          <div class="file-list" aria-label="建议交付文件列表">
+            <div class="file-row"><code>README.md</code><p>前置条件、单命令运行、预计产物、分层验收、失败排查与支持边界。</p></div>
+            <div class="file-row"><code>run_64h100.sh</code><p><strong>唯一总入口。</strong>按顺序执行 preflight、bootstrap、asset、prepare、train、eval、compare 与诊断归档。</p></div>
+            <div class="file-row"><code>Dockerfile + requirements.lock</code><p>固定 CUDA / PyTorch / NeMo / Lexmount SDK 版本；避免依赖“集群上刚好有某个环境”。</p></div>
+            <div class="file-row"><code>configs/experiment.yaml</code><p>模型、数据、训练超参、评测频率、并发、seed、重试策略和 checkpoint 策略。</p></div>
+            <div class="file-row"><code>configs/cluster_64h100.yaml</code><p>8 节点 × 8 GPU、launcher、NCCL/网络与共享路径约定；允许按 NVIDIA 实际调度器覆盖。</p></div>
+            <div class="file-row"><code>scripts/{preflight,bootstrap,download,prepare,train,eval,compare,diagnostics}.*</code><p>阶段化实现；每项可独立重试，但不改变总入口的记录与版本语义。</p></div>
+            <div class="file-row"><code>secrets/lexmount.env</code><p><strong>只存在于私有交付包。</strong>包含 Lexmount key 与 project_id，权限为 <code>0600</code>；Git、Docker 镜像、运行日志和此 Helm 文档仅保留 <code>.example</code> 模板。</p></div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <p class="label">02 / parity</p>
+        <div class="section-copy">
+          <h2>比较必须只改变浏览器后端；否则不能把结果称为 Lexmount 优势。</h2>
+          <p>训练和评测都应共用一份 run manifest。若任意强约束不一致，脚本输出参数差异并把本轮比较标记为不可比，而不是静默生成结论。</p>
+          <table>
+            <thead><tr><th>维度</th><th>Lexmount</th><th>本地 Chrome</th><th>比较规则</th></tr></thead>
+            <tbody>
+              <tr><td><strong>保持一致</strong></td><td>同一模型、数据切分、prompt、训练步数</td><td>同一模型、数据切分、prompt、训练步数</td><td>完全相同；由 manifest 和哈希校验</td></tr>
+              <tr><td><strong>执行参数</strong></td><td>同一并发、最大 steps、超时、重试、seed</td><td>同一并发、最大 steps、超时、重试、seed</td><td>不一致即标记为不可比</td></tr>
+              <tr><td><strong>唯一变量</strong></td><td>Lexmount remote browser / SDK</td><td>训练节点上的 local Chrome runner</td><td>浏览器后端是唯一有意差异</td></tr>
+              <tr><td><strong>记录指标</strong></td><td>成功率、操作延迟、失败/重试、资源占用</td><td>成功率、操作延迟、失败/重试、资源占用</td><td>同时记录训练与环境成本，不只比较 reward</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <p class="label">03 / observe</p>
+        <div class="section-copy">
+          <h2>最终交付的不只是一个 checkpoint，而是一套能解释结果的运行证据。</h2>
+          <p>训练收益和环境收益必须分开记录。否则即使 Lexmount 的最终 reward 更高，也无法判断提升来自训练、任务完成、浏览器稳定性，还是机器侧资源差异。</p>
+          <div class="metric-grid">
+            <div><b>训练曲线</b><p>global step、loss、reward、learning rate、tokens/s、samples/s、梯度/溢出异常、checkpoint 时间与恢复次数。</p></div>
+            <div><b>任务与 verifier</b><p>固定评测集上的任务成功率、verifier pass rate、完成步数、失败类别、每类任务的分项结果。</p></div>
+            <div><b>浏览器后端</b><p>浏览器启动时间、页面/操作延迟、超时、会话失败、重试次数、任务级成功率与并发实际值。</p></div>
+            <div><b>系统与集群</b><p>每节点 GPU 利用率/显存、CPU/RAM、磁盘 I/O、网络吞吐、NCCL 错误与 GPU 小时。</p></div>
+          </div>
+          <table>
+            <thead><tr><th>输出文件</th><th>用途</th><th>最低要求</th></tr></thead>
+            <tbody>
+              <tr><td><code>artifacts/metrics/train.jsonl</code></td><td>训练曲线与 step 级事件</td><td>可离线画图，不依赖线上 dashboard。</td></tr>
+              <tr><td><code>artifacts/eval/step-*.json</code></td><td>中间评测结果与任务级明细</td><td>相同 eval split、相同 verifier、相同评测参数。</td></tr>
+              <tr><td><code>artifacts/metrics/system-*.jsonl</code></td><td>节点与 GPU 资源使用</td><td>至少覆盖训练窗口和评测窗口。</td></tr>
+              <tr><td><code>artifacts/comparison_report/</code></td><td>两个后端的参数、结果与成本对照</td><td>先输出可比性，再输出任何优劣结论。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <p class="label">04 / recovery</p>
+        <div class="section-copy">
+          <h2>降级必须可见、可逆、不会偷换实验条件。</h2>
+          <div class="split">
+            <div class="boundary">
+              <p class="label">Expected recovery</p>
+              <h3>短暂故障可恢复</h3>
+              <p>资产下载具备校验与缓存；浏览器/网络请求做有界重试；训练从最近 checkpoint 恢复；阶段状态写入 <code>run_manifest.json</code>。中断后重跑总入口应跳过已验证阶段。</p>
+            </div>
+            <div class="boundary warning">
+              <p class="label">Hard boundary</p>
+              <h3>不可静默降级</h3>
+              <p>GPU 少于 64、NCCL/IB 不可用、评测集缺失、浏览器参数不一致或凭据失效时，正式 run 必须失败并输出诊断包；可以另开降级 smoke，但不可混入 64 卡结论。</p>
+            </div>
+          </div>
+          <table>
+            <thead><tr><th>阶段</th><th>恢复动作</th><th>保留证据</th></tr></thead>
+            <tbody>
+              <tr><td>环境 / 资产</td><td>版本与 checksum 一致时复用缓存；不一致时停止</td><td>镜像 digest、wheel lock、模型与数据 revision</td></tr>
+              <tr><td>训练</td><td>从最近完整 checkpoint 和 dataloader 状态恢复</td><td>global step、rank 状态、NCCL/torch 分布式日志</td></tr>
+              <tr><td>浏览器 / 评测</td><td>有界重试后写失败分类；不改变评测规则</td><td>任务级结果、重试次数、超时、backend 版本</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <p class="label">05 / acceptance</p>
+        <div class="section-copy">
+          <h2>验收分层：先证明入口正确，再要求 64 H100 的规模运行。</h2>
+          <ul class="checklist">
+            <li><strong>Dry run：</strong>验证配置、文件、凭据引用与调度命令，不下载或训练。</li>
+            <li><strong>1 GPU smoke：</strong>完成最小数据预处理、一个真实训练 step、一次 Lexmount 与本地 Chrome 评测。</li>
+            <li><strong>8 H100 node check：</strong>验证多卡启动、NCCL、checkpoint 恢复、指标聚合和浏览器并发。</li>
+            <li><strong>64 H100 run：</strong>完成 8 节点 × 8 卡训练，并输出训练曲线、阶段评测、资源指标、版本 manifest 和后端对照报告。</li>
+            <li><strong>诊断可读：</strong>任一门槛失败时，<code>artifacts/diagnostics/</code> 内存在 GPU、网络、NCCL、环境、阶段状态和最近日志的可打包证据。</li>
+          </ul>
+        </div>
+      </section>
+
+      <section>
+        <p class="label">06 / confirm</p>
+        <div class="section-copy">
+          <h2>需要先与团队和 NVIDIA 对齐的不是文案，而是这六个执行约束。</h2>
+          <div class="open-grid">
+            <div><b>训练入口</b><p>模型仓库、NeMo/训练框架版本、已有 entrypoint 与预期训练目标。</p></div>
+            <div><b>模型与数据</b><p>下载地址、revision、许可证、访问令牌、数据预处理规则和缓存路径。</p></div>
+            <div><b>集群形态</b><p>Slurm 还是裸机；节点数、GPU 拓扑、IB/RDMA、共享存储与容器运行时。</p></div>
+            <div><b>网络与权限</b><p>是否可访问 PyPI、镜像仓库、模型仓库和 Lexmount；无法访问时由谁提供离线包。</p></div>
+            <div><b>评测定义</b><p>固定任务集、verifier、阶段评测频率、成功率与资源效率的最终口径。</p></div>
+            <div><b>比较边界</b><p>本地 Chrome runner 的位置和版本；并发、超时、重试、seed 以及不可比判定阈值。</p></div>
+          </div>
+        </div>
+      </section>
+
+      <footer>
+        <p class="label">Method &amp; boundary</p>
+        <div>
+          <p>来源：当前 Lexmount / NVIDIA 64 H100 训练交付规划对话。数据日期：2026-07-14。证据状态：提案与交付设计，不含已完成 64 H100 实测结论。</p>
+          <ul>
+            <li>推荐启动方式：<code>./run_64h100.sh --config configs/experiment.yaml --cluster configs/cluster_64h100.yaml</code>。</li>
+            <li>私有凭据仅随受控交付包提供；本页与公开源码不包含 key、project_id、访问令牌或机器地址。</li>
+            <li>下一检查点：确认六项执行约束后，将本简报落为实际仓库、容器和可验证脚本。</li>
+          </ul>
+        </div>
+      </footer>
+    </main>
+  </body>
+</html>
