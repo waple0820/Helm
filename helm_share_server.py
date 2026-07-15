@@ -9,6 +9,7 @@ import ipaddress
 import json
 import os
 import re
+import secrets
 import threading
 from datetime import datetime, timezone
 from http import HTTPStatus
@@ -287,9 +288,16 @@ class ShareRequestHandler(SimpleHTTPRequestHandler):
             return False
 
     def _owner_request(self) -> bool:
-        if not self._loopback_writer():
+        authorization = self.headers.get("Authorization", "")
+        bearer = authorization.removeprefix("Bearer ") if authorization.startswith("Bearer ") else ""
+        token_writer = bool(
+            self.server.owner_token
+            and bearer
+            and secrets.compare_digest(bearer, self.server.owner_token)
+        )
+        if not self._loopback_writer() and not token_writer:
             self.close_connection = True
-            self._send_json(HTTPStatus.FORBIDDEN, {"error": "read_only_network", "message": "Channel management is only accepted through the owner's loopback connection."})
+            self._send_json(HTTPStatus.FORBIDDEN, {"error": "read_only_network", "message": "Channel management requires the owner's loopback connection or deployment token."})
             return False
         origin = self.headers.get("Origin")
         if origin and origin not in self.server.allowed_origins:
@@ -469,12 +477,18 @@ class ShareRequestHandler(SimpleHTTPRequestHandler):
 class ShareHTTPServer(ThreadingHTTPServer):
     daemon_threads = True
 
-    def __init__(self, address: tuple[str, int], site_root: Path, store: ShareStore, public_base_url: str):
+    def __init__(self, address: tuple[str, int], site_root: Path, store: ShareStore, public_base_url: str, owner_token: str | None = None):
         self.site_root = site_root.resolve()
         self.store = store
         self.public_base_url = public_base_url.rstrip("/")
+        self.owner_token = owner_token or None
         port = address[1]
-        self.allowed_origins = {f"http://127.0.0.1:{port}", f"http://localhost:{port}"}
+        public_origin = urlparse(self.public_base_url)
+        self.allowed_origins = {
+            f"http://127.0.0.1:{port}",
+            f"http://localhost:{port}",
+            f"{public_origin.scheme}://{public_origin.netloc}",
+        }
         super().__init__(address, lambda *args, **kwargs: ShareRequestHandler(*args, directory=self.site_root, **kwargs))
         actual_port = self.server_address[1]
         if port == 0:
@@ -489,7 +503,13 @@ def main() -> None:
     parser.add_argument("--share-dir", type=Path, default=Path(os.environ.get("HELM_SHARE_DIR", "~/.helm-shares")))
     parser.add_argument("--public-base-url", default=os.environ.get("HELM_PUBLIC_BASE_URL", "http://127.0.0.1:4173"))
     args = parser.parse_args()
-    server = ShareHTTPServer((args.host, args.port), args.site_root, ShareStore(args.share_dir), args.public_base_url)
+    server = ShareHTTPServer(
+        (args.host, args.port),
+        args.site_root,
+        ShareStore(args.share_dir),
+        args.public_base_url,
+        owner_token=os.environ.get("HELM_OWNER_TOKEN"),
+    )
     print(f"Helm Share serving {args.site_root.resolve()} at {args.host}:{args.port}; public links use {server.public_base_url}")
     try:
         server.serve_forever()

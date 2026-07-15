@@ -26,7 +26,7 @@ python3 helm_share_server.py \
   --public-base-url http://INTRANET_HOST:4173
 ```
 
-Channel mutations are accepted only through an owner loopback connection. Browser requests must use `Content-Type: application/json` and an allowed local Origin; command-line clients may omit Origin. When the service runs remotely, use an SSH local forward for management.
+Channel mutations are accepted through an owner loopback connection by default. A remote deployment may set a strong `HELM_OWNER_TOKEN`; command-line management then sends it as `Authorization: Bearer <token>`. Browser requests must also use an allowed Origin, while command-line clients may omit Origin. Never embed the token in HTML or commit it to the repository.
 
 Create a Channel:
 

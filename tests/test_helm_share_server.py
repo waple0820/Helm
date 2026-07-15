@@ -6,9 +6,10 @@ import threading
 import unittest
 from pathlib import Path
 from stat import S_IMODE
+from unittest.mock import patch
 
 from helm_bridge import ContractError
-from helm_share_server import ChannelConflictError, ChannelNotFoundError, ShareHTTPServer, ShareStore
+from helm_share_server import ChannelConflictError, ChannelNotFoundError, ShareHTTPServer, ShareRequestHandler, ShareStore
 
 
 def hdoc(title="Shared report", summary="A report shared on the intranet."):
@@ -181,6 +182,21 @@ class ShareServerTests(unittest.TestCase):
         allowed = {"Origin": f"http://127.0.0.1:{self.port}", "Content-Type": "text/plain"}
         status, _, body = self.request("POST", "/api/channels/publish", {"html": hdoc().decode()}, allowed)
         self.assertEqual((415, "content_type_required"), (status, json.loads(body)["error"]))
+
+    def test_deployment_token_allows_non_loopback_owner_requests(self):
+        self.server.owner_token = "deployment-secret"
+        headers = {"Authorization": "Bearer deployment-secret", "Content-Type": "application/json"}
+        with patch.object(ShareRequestHandler, "_loopback_writer", return_value=False):
+            status, _, body = self.request("POST", "/api/channels/publish", {"html": hdoc().decode()}, headers)
+        self.assertEqual((201, "created"), (status, json.loads(body)["state"]))
+
+        with patch.object(ShareRequestHandler, "_loopback_writer", return_value=False):
+            status, _, body = self.request("GET", "/api/channels", headers=headers)
+        self.assertEqual((200, 1), (status, len(json.loads(body)["artifacts"])))
+
+        with patch.object(ShareRequestHandler, "_loopback_writer", return_value=False):
+            status, _, body = self.request("GET", "/api/channels")
+        self.assertEqual((403, "read_only_network"), (status, json.loads(body)["error"]))
 
     def test_stale_update_returns_current_revision(self):
         _, _, created = self.publish_channel()
