@@ -415,19 +415,6 @@ function filteredDocuments() {
   return result.sort((left, right) => sort === 'title' ? left.title.localeCompare(right.title) : new Date(right[sort === 'created' ? 'createdAt' : 'catalogUpdatedAt'] || right.updatedAt) - new Date(left[sort === 'created' ? 'createdAt' : 'catalogUpdatedAt'] || left.updatedAt));
 }
 
-function renderCollections() {
-  const configured = [['Research', '#c4e878', 'research'], ['Active work', '#8cbdde', 'active'], ['Reference', '#e8bd78', 'reference']];
-  $('#collections').innerHTML = configured.map(([label, color, term]) => `<button class="collection" type="button" data-collection="${term}" style="--collection-color:${color}"><i></i>${label}<b>${String(documents.filter((artifact) => artifact.type === term || artifact.tags.some((tag) => tag.toLowerCase() === term)).length).padStart(2, '0')}</b></button>`).join('');
-  $('#collections').querySelectorAll('.collection').forEach((button) => button.addEventListener('click', () => {
-    $('#searchInput').value = button.dataset.collection;
-    activeFilter = 'all';
-    activeProject = 'all';
-    $$('.filter').forEach((filter) => filter.classList.toggle('active', filter.dataset.filter === 'all'));
-    showView('library');
-    render();
-  }));
-}
-
 function renderProjects() {
   const projects = knownProjects();
   if (activeProject !== 'all' && !projects.some((project) => project.id === activeProject)) activeProject = 'all';
@@ -435,12 +422,12 @@ function renderProjects() {
   const assignedProjects = projects.filter((project) => project.id !== UNASSIGNED_PROJECT.id);
   const unassignedProject = projects.find((project) => project.id === UNASSIGNED_PROJECT.id);
   $('#projects').innerHTML = [
-    `<button class="collection project-collection ${activeProject === 'all' ? 'is-active' : ''}" type="button" data-project="all" style="--collection-color:#8cbdde"><i></i>All projects<b>${String(documents.length).padStart(2, '0')}</b></button>`,
-    ...assignedProjects.map((project) => `<button class="collection project-collection ${activeProject === project.id ? 'is-active' : ''}" type="button" data-project="${esc(project.id)}" style="--collection-color:#c4e878"><i></i><span>${esc(project.name)}</span><b>${String(documents.filter((artifact) => projectFor(artifact).id === project.id).length).padStart(2, '0')}</b></button>`)
+    `<button class="collection project-collection ${activeProject === 'all' ? 'is-active' : ''}" type="button" data-project="all" style="--collection-color:#8cbdde"><i></i><span>All projects</span><b>${String(documents.length).padStart(2, '0')}</b></button>`,
+    ...assignedProjects.map((project) => `<button class="collection project-collection ${activeProject === project.id ? 'is-active' : ''}" type="button" data-project="${esc(project.id)}" title="${esc(project.name)}" style="--collection-color:#c4e878"><i></i><span>${esc(project.name)}</span><b>${String(documents.filter((artifact) => projectFor(artifact).id === project.id).length).padStart(2, '0')}</b></button>`)
   ].join('');
   $('#projectReviewLabel').hidden = !unassignedProject;
   $('#projectReview').hidden = !unassignedProject;
-  $('#projectReview').innerHTML = unassignedProject ? `<button class="collection project-collection ${activeProject === unassignedProject.id ? 'is-active' : ''}" type="button" data-project="${esc(unassignedProject.id)}" style="--collection-color:#e8bd78"><i></i><span>${esc(unassignedProject.name)}</span><b>${String(documents.filter((artifact) => projectFor(artifact).id === unassignedProject.id).length).padStart(2, '0')}</b></button>` : '';
+  $('#projectReview').innerHTML = unassignedProject ? `<button class="collection project-collection ${activeProject === unassignedProject.id ? 'is-active' : ''}" type="button" data-project="${esc(unassignedProject.id)}" title="${esc(unassignedProject.name)}" style="--collection-color:#e8bd78"><i></i><span>${esc(unassignedProject.name)}</span><b>${String(documents.filter((artifact) => projectFor(artifact).id === unassignedProject.id).length).padStart(2, '0')}</b></button>` : '';
   $$('.project-collection').forEach((button) => button.addEventListener('click', () => {
     activeProject = button.dataset.project;
     activeFilter = 'all';
@@ -620,7 +607,7 @@ function renderInspector() {
   $('#forkArtifactId').textContent = forkNeedsRevision ? artifact.id : '';
 }
 
-function render() { renderCollections(); renderProjects(); renderLibrary(); renderTemplates(); renderInspector(); $('#archiveDocumentCount').textContent = String(documents.filter((artifact) => !artifact.remotePublication).length).padStart(2, '0'); renderFolderStatus(); }
+function render() { renderProjects(); renderLibrary(); renderTemplates(); renderInspector(); $('#archiveDocumentCount').textContent = String(documents.filter((artifact) => !artifact.remotePublication).length).padStart(2, '0'); renderFolderStatus(); }
 function selectDocument(id) { selectedId = id; renderLibrary(); renderInspector(); }
 
 function showView(view) {
