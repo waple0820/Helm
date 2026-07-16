@@ -8,7 +8,7 @@
     <title>Helm — HTML Archive</title>
     <link rel="icon" href="assets/helm-mark.png" type="image/png" />
     <link rel="apple-touch-icon" href="assets/helm-mark.png" />
-    <link rel="stylesheet" href="styles.css?v=20260714-experience-fixes" />
+    <link rel="stylesheet" href="styles.css?v=20260716-fluid-layout" />
   </head>
   <body>
     <div class="app-shell">
@@ -74,8 +74,13 @@
               <p class="eyebrow">PERSONAL HTML LIBRARY</p>
               <h1>Documents, not loose files.</h1>
               <p class="lede">A curated home for the HTML worth keeping.</p>
-              <p class="library-facts"><strong id="documentCount">00</strong> artifacts <i></i><strong id="librarySourceCount">00</strong> projects <i></i><strong id="contractReadyCount">00</strong> HDOC ready <button id="readContract" type="button">Contract →</button></p>
+              <button class="contract-link" id="readContract" type="button">How Helm keeps documents portable <span>→</span></button>
             </div>
+            <aside class="library-overview" aria-label="Library overview">
+              <div><strong id="documentCount">00</strong><span>Artifacts<br />kept</span></div>
+              <div><strong id="librarySourceCount">00</strong><span>Project<br />spaces</span></div>
+              <div><strong id="contractReadyCount">00</strong><span>HDOC<br />ready</span></div>
+            </aside>
           </div>
 
           <div class="library-toolbar">
