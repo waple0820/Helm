@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Helm · Library</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='5' fill='%230e8ba8'/%3E%3C/svg%3E">
+<script>
+(() => {
+  const key='helm:theme';
+  let m='system';
+  try{const s=localStorage.getItem(key); if(['light','dark','system'].includes(s)) m=s;}catch(_){}
+  const eff = m==='system' ? (matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light') : m;
+  document.documentElement.dataset.theme = eff;
+})();
+</script>
+<style>
+:root{
+  --paper:#f7f8f9; --raised:#ffffff; --ink:#14171a; --muted:#61666d;
+  --faint:#8b9098; --line:#e3e5e8; --line-strong:#cfd2d6;
+  --accent:#0e8ba8; --accent-ink:#0b6f86; --accent-wash:#e5f3f6; --grid:#eceef0;
+  --shadow:0 1px 0 rgba(20,23,26,.04), 0 1px 3px rgba(20,23,26,.05);
+  --font-sans:"Inter",system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  --font-mono:ui-monospace,"SF Mono","JetBrains Mono","Cascadia Code",Menlo,Consolas,monospace;
+}
+:root[data-theme="dark"]{
+  --paper:#0f1115; --raised:#16191e; --ink:#e7e9ec; --muted:#9198a0;
+  --faint:#6b727a; --line:#24272d; --line-strong:#31353c;
+  --accent:#28b6d4; --accent-ink:#5cc9e2; --accent-wash:#0e2830; --grid:#1b1e23;
+  --shadow:0 1px 0 rgba(0,0,0,.3), 0 2px 8px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--font-sans);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px);background-size:100% 2.5rem;background-position:0 -1px;}
+a{color:inherit;text-decoration:none}
+.mono{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+
+.topbar{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--paper) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.topbar-in{max-width:90rem;margin:0 auto;padding:12px clamp(20px,5vw,56px);display:flex;align-items:center;gap:20px}
+.wordmark{font-family:var(--font-mono);font-weight:600;letter-spacing:.14em;font-size:13px;display:flex;align-items:center;gap:9px}
+.wordmark .dot{width:7px;height:7px;background:var(--accent);border-radius:50%;box-shadow:0 0 0 3px var(--accent-wash)}
+.wordmark small{color:var(--faint);font-weight:500;letter-spacing:.1em}
+.topbar .right{margin-left:auto;display:flex;gap:14px;align-items:center}
+.count{font-family:var(--font-mono);font-size:11px;color:var(--muted);letter-spacing:.06em}
+.theme-toggle{border:1px solid var(--line-strong);background:var(--raised);color:var(--muted);font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;padding:5px 10px;border-radius:6px;cursor:pointer}
+.theme-toggle:hover{color:var(--ink);border-color:var(--accent)}
+
+.wrap{max-width:90rem;margin:0 auto;padding:0 clamp(20px,5vw,56px)}
+.masthead{padding:clamp(40px,6vw,72px) 0 28px}
+.masthead h1{font-size:clamp(30px,5vw,50px);font-weight:680;letter-spacing:-.02em;margin:14px 0 12px;line-height:1.05}
+.masthead p{color:var(--muted);font-size:18px;max-width:40rem;margin:0}
+
+.controls{position:sticky;top:53px;z-index:15;background:color-mix(in srgb,var(--paper) 92%,transparent);backdrop-filter:blur(8px);
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:12px 0;margin-bottom:28px}
+.controls-in{max-width:90rem;margin:0 auto;padding:0 clamp(20px,5vw,56px);display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.search{flex:1 1 240px;min-width:180px;display:flex;align-items:center;gap:8px;background:var(--raised);border:1px solid var(--line-strong);border-radius:8px;padding:8px 12px}
+.search input{border:none;background:none;outline:none;color:var(--ink);font-family:var(--font-sans);font-size:14px;width:100%}
+.search .k{color:var(--faint)}
+.filters{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-family:var(--font-mono);font-size:11px;letter-spacing:.05em;text-transform:uppercase;padding:6px 11px;border:1px solid var(--line-strong);border-radius:7px;background:var(--raised);color:var(--muted);cursor:pointer}
+.chip.on{background:var(--accent-wash);border-color:var(--accent);color:var(--accent-ink)}
+.chip b{color:var(--faint);font-weight:500;margin-left:5px}
+.chip.on b{color:var(--accent-ink)}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-bottom:56px}
+.card{background:var(--raised);padding:26px 24px;display:flex;flex-direction:column;gap:12px;min-height:190px;transition:background .12s}
+.card:hover{background:color-mix(in srgb,var(--accent-wash) 40%,var(--raised))}
+.card .head{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.card .type{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent-ink);padding:3px 7px;border:1px solid var(--accent);border-radius:5px}
+.card .date{font-family:var(--font-mono);font-size:11px;color:var(--faint)}
+.card h3{margin:0;font-size:20px;font-weight:640;letter-spacing:-.01em;line-height:1.25}
+.card .summary{color:var(--muted);font-size:14px;line-height:1.5;flex:1}
+.card .foot{display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid var(--line);padding-top:12px;margin-top:2px}
+.card .tags{display:flex;gap:6px;flex-wrap:wrap}
+.card .tag{font-family:var(--font-mono);font-size:10px;color:var(--faint);letter-spacing:.04em}
+.card .src{font-family:var(--font-mono);font-size:10px;color:var(--faint);letter-spacing:.05em;white-space:nowrap}
+
+.empty,.state-msg{padding:80px 0;text-align:center;color:var(--muted)}
+.empty h3{color:var(--ink);font-size:22px;margin:0 0 10px}
+.empty code{font-family:var(--font-mono);font-size:13px;background:var(--raised);border:1px solid var(--line-strong);border-radius:6px;padding:2px 8px;color:var(--accent-ink)}
+
+@media(max-width:640px){body{background-image:none}.controls{top:51px}}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-in">
+    <span class="wordmark"><span class="dot"></span>HELM<small>LIBRARY</small></span>
+    <div class="right">
+      <span class="count" id="count"></span>
+      <button class="theme-toggle" id="tt" type="button">◐ THEME</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="masthead">
+    <span class="mono">Local-first · agent-authored artifacts</span>
+    <h1>Library</h1>
+    <p>Agent 产出的独立 HDOC 文件,躺在本机文件夹里。点开即原件,无 server 逻辑,无云。</p>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="controls-in">
+    <label class="search"><span class="k">⌕</span><input id="q" type="search" placeholder="搜索标题、摘要、标签…" autocomplete="off"></label>
+    <div class="filters" id="filters"></div>
+  </div>
+</div>
+
+<main class="wrap">
+  <div id="grid"></div>
+</main>
+
+<script>
+const S = { all: [], type: 'all', q: '' };
+const grid = document.getElementById('grid');
+const filters = document.getElementById('filters');
+const countEl = document.getElementById('count');
+
+document.getElementById('tt').addEventListener('click', () => {
+  const cur = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = cur;
+  try { localStorage.setItem('helm:theme', cur); } catch (_) {}
+});
+
+function esc(s){return String(s??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+
+async function boot(){
+  let catalog;
+  try{
+    const res = await fetch('../library/catalog.json?t=' + Date.now(), {cache:'no-store'});
+    if(!res.ok) throw new Error(res.status);
+    catalog = await res.json();
+  }catch(e){
+    grid.innerHTML = emptyState(true);
+    return;
+  }
+  S.all = catalog.artifacts || [];
+  buildFilters();
+  render();
+}
+
+function buildFilters(){
+  const counts = {};
+  S.all.forEach(a => counts[a.type] = (counts[a.type]||0)+1);
+  const types = Object.keys(counts).sort();
+  const mk = (key,label,n,on) =>
+    `<button class="chip${on?' on':''}" data-type="${key}">${label}<b>${n}</b></button>`;
+  filters.innerHTML = mk('all','全部',S.all.length,true) +
+    types.map(t => mk(t,t,counts[t],false)).join('');
+  filters.querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => {
+    S.type = c.dataset.type;
+    filters.querySelectorAll('.chip').forEach(x => x.classList.toggle('on', x===c));
+    render();
+  }));
+}
+
+document.getElementById('q').addEventListener('input', e => { S.q = e.target.value.trim().toLowerCase(); render(); });
+
+function match(a){
+  if(S.type!=='all' && a.type!==S.type) return false;
+  if(!S.q) return true;
+  const hay = [a.title,a.summary,a.source,(a.tags||[]).join(' ')].join(' ').toLowerCase();
+  return hay.includes(S.q);
+}
+
+function render(){
+  const rows = S.all.filter(match);
+  countEl.textContent = rows.length + ' / ' + S.all.length;
+  if(!S.all.length){ grid.innerHTML = emptyState(false); grid.style.background='transparent'; grid.style.border='none'; return; }
+  if(!rows.length){ grid.innerHTML = `<div class="state-msg">无匹配。</div>`; grid.style.background='transparent'; grid.style.border='none'; return; }
+  grid.style.background=''; grid.style.border=''; grid.className='grid';
+  grid.innerHTML = rows.map(card).join('');
+}
+
+function card(a){
+  const tags = (a.tags||[]).slice(0,4).map(t=>`<span class="tag">#${esc(t)}</span>`).join('');
+  return `<a class="card" href="../library/${encodeURI(a.path)}">
+    <div class="head"><span class="type">${esc(a.type)}</span><span class="date">${esc(a.updated||a.created||'')}</span></div>
+    <h3>${esc(a.title)}</h3>
+    <p class="summary">${esc(a.summary||'')}</p>
+    <div class="foot"><div class="tags">${tags}</div><span class="src">${esc(a.source||'')}</span></div>
+  </a>`;
+}
+
+function emptyState(err){
+  grid.className='';
+  return `<div class="empty">
+    <h3>${err?'读不到 catalog':'库还是空的'}</h3>
+    <p>生成一个 artifact,然后重建索引:</p>
+    <p><code>bin/helm new "My report"</code> &nbsp; <code>bin/helm index</code></p>
+  </div>`;
+}
+
+boot();
+</script>
+</body>
+</html>

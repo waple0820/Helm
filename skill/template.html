@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}}</title>
+<!--
+  Helm HDOC/1.1 artifact. Standalone, self-contained, no runtime dependency.
+  The manifest below is the machine record; `helm index` reads it. Keep it in
+  sync with the visible document. Replace EVERY specimen marked `placeholder`,
+  remove the class, and delete any component whose relationship is absent.
+-->
+<script type="application/helm+json">
+{
+  "schema": "HDOC/1.1",
+  "id": "artifact-id",
+  "title": "{{TITLE}}",
+  "type": "report",
+  "summary": "{{SUMMARY}}",
+  "tags": [],
+  "source": "agent",
+  "created": "{{DATE}}",
+  "updated": "{{DATE}}"
+}
+</script>
+<script>
+(() => {
+  const key='helm:theme';
+  let m='system';
+  try{const s=localStorage.getItem(key); if(['light','dark','system'].includes(s)) m=s;}catch(_){}
+  const eff = m==='system' ? (matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light') : m;
+  document.documentElement.dataset.theme = eff;
+})();
+</script>
+<style>
+/* ==================== Helm · cool-grey engineering identity ==================== */
+:root{
+  --paper:#f7f8f9; --raised:#ffffff; --ink:#14171a; --muted:#61666d;
+  --faint:#8b9098; --line:#e3e5e8; --line-strong:#cfd2d6;
+  --accent:#0e8ba8; --accent-ink:#0b6f86; --accent-wash:#e5f3f6;
+  --ok:#1f8a5b; --warn:#b5751a; --grid:#eceef0;
+  --shadow:0 1px 0 rgba(20,23,26,.04), 0 1px 3px rgba(20,23,26,.05);
+  --font-sans:"Inter",system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  --font-mono:ui-monospace,"SF Mono","JetBrains Mono","Cascadia Code",Menlo,Consolas,monospace;
+  --read:44rem; --content:72rem; --stage:90rem;
+}
+:root[data-theme="dark"]{
+  --paper:#0f1115; --raised:#16191e; --ink:#e7e9ec; --muted:#9198a0;
+  --faint:#6b727a; --line:#24272d; --line-strong:#31353c;
+  --accent:#28b6d4; --accent-ink:#5cc9e2; --accent-wash:#0e2830;
+  --ok:#3fbf85; --warn:#d6a04a; --grid:#1b1e23;
+  --shadow:0 1px 0 rgba(0,0,0,.3), 0 2px 8px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--font-sans);
+  font-size:16px;line-height:1.65;letter-spacing:.005em;-webkit-font-smoothing:antialiased;
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px);
+  background-size:100% 2.5rem;background-position:0 -1px;}
+.mono{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+
+.topbar{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--paper) 88%,transparent);
+  backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.topbar-in{max-width:var(--stage);margin:0 auto;padding:12px clamp(20px,5vw,64px);display:flex;align-items:center;gap:20px}
+.wordmark{font-family:var(--font-mono);font-weight:600;letter-spacing:.14em;font-size:13px;display:flex;align-items:center;gap:9px}
+.wordmark .dot{width:7px;height:7px;background:var(--accent);border-radius:50%;box-shadow:0 0 0 3px var(--accent-wash)}
+.wordmark small{color:var(--faint);font-weight:500;letter-spacing:.1em}
+.topbar .meta{margin-left:auto;display:flex;gap:18px;align-items:center}
+.topbar .meta span{font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;color:var(--muted)}
+.topbar .meta b{color:var(--ink);font-weight:600}
+.theme-toggle{border:1px solid var(--line-strong);background:var(--raised);color:var(--muted);
+  font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;padding:5px 10px;border-radius:6px;cursor:pointer}
+.theme-toggle:hover{color:var(--ink);border-color:var(--accent)}
+
+.wrap{max-width:var(--content);margin:0 auto;padding:0 clamp(20px,5vw,64px)}
+.read{max-width:var(--read)}
+section{padding:clamp(48px,7vw,88px) 0;border-top:1px solid var(--line)}
+section:first-of-type{border-top:none}
+.marker{display:flex;align-items:baseline;gap:14px;margin-bottom:26px}
+.marker .no{font-family:var(--font-mono);font-size:12px;color:var(--accent);letter-spacing:.1em}
+.marker .no::before{content:"";display:inline-block;width:22px;height:1px;background:var(--accent);vertical-align:middle;margin-right:10px;transform:translateY(-3px)}
+.marker .kind{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+h1,h2,h3{letter-spacing:-.01em;line-height:1.2;margin:0}
+h2{font-size:clamp(24px,3.2vw,34px);font-weight:650;margin-bottom:14px}
+h3{font-size:18px;font-weight:600;margin-bottom:8px}
+p{margin:0 0 18px}
+.lead{font-size:19px;color:var(--muted);line-height:1.55}
+
+.hero{padding-top:clamp(40px,6vw,72px)}
+.hero h1{font-size:clamp(34px,6vw,60px);font-weight:680;line-height:1.06;margin:18px 0 20px;letter-spacing:-.02em}
+.hero .claim{font-size:clamp(18px,2.4vw,22px);color:var(--muted);max-width:40rem;line-height:1.5}
+.accent-word{color:var(--accent-ink)}
+.metastrip{display:flex;flex-wrap:wrap;gap:0;margin-top:34px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--raised);box-shadow:var(--shadow);max-width:52rem}
+.metastrip .cell{flex:1 1 auto;min-width:140px;padding:14px 18px;border-right:1px solid var(--line)}
+.metastrip .cell:last-child{border-right:none}
+.metastrip .k{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);display:block;margin-bottom:5px}
+.metastrip .v{font-family:var(--font-mono);font-size:14px;color:var(--ink);font-weight:600}
+.metastrip .v.pos{color:var(--ok)}
+
+.ledger{width:100%;border-collapse:collapse;font-size:14.5px;margin-top:8px}
+.ledger th{text-align:left;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);font-weight:600;padding:10px 14px;border-bottom:1px solid var(--line-strong)}
+.ledger td{padding:14px;border-bottom:1px solid var(--line);vertical-align:top}
+.ledger td.id{font-family:var(--font-mono);color:var(--accent);font-size:12px;white-space:nowrap}
+.state{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;padding:3px 8px;border-radius:5px;white-space:nowrap;font-weight:600}
+.state.verified{background:color-mix(in srgb,var(--ok) 14%,transparent);color:var(--ok)}
+.state.interp{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent-ink)}
+.state.proposal{background:color-mix(in srgb,var(--warn) 15%,transparent);color:var(--warn)}
+.ledger .src{color:var(--muted);font-size:13px}
+
+.figure{border:1px solid var(--line);border-radius:12px;background:var(--raised);padding:24px;box-shadow:var(--shadow)}
+.figure .cap{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:20px;gap:12px;flex-wrap:wrap}
+.figure .cap h3{margin:0}
+.figure .cap .unit{font-family:var(--font-mono);font-size:11px;color:var(--faint);letter-spacing:.05em}
+.bars{display:grid;gap:14px}
+.bar-row{display:grid;grid-template-columns:110px 1fr 84px;align-items:center;gap:14px}
+.bar-row .lab{font-family:var(--font-mono);font-size:12px;color:var(--muted)}
+.bar-track{height:26px;background:var(--grid);border-radius:5px;overflow:hidden}
+.bar-fill{height:100%;border-radius:5px;background:linear-gradient(90deg,var(--accent),var(--accent-ink))}
+.bar-fill.dim{background:var(--line-strong)}
+.bar-row .val{font-family:var(--font-mono);font-size:13px;color:var(--ink);text-align:right;font-weight:600}
+.figure .note{margin:18px 0 0;font-size:13px;color:var(--muted);border-top:1px dashed var(--line);padding-top:14px}
+.figure .note b{color:var(--accent-ink);font-weight:600}
+
+.spec{background:var(--raised);border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:var(--shadow)}
+.spec-head{display:flex;justify-content:space-between;padding:11px 16px;border-bottom:1px solid var(--line);font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;color:var(--faint)}
+.spec pre{margin:0;padding:18px 16px;overflow-x:auto;font-family:var(--font-mono);font-size:13px;line-height:1.7;color:var(--ink)}
+.spec .cm{color:var(--faint)} .spec .kw{color:var(--accent-ink)} .spec .st{color:var(--ok)}
+
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-top:8px}
+.cols .col{background:var(--raised);padding:22px}
+.cols .col .mono{margin-bottom:8px}
+.cols .col p{margin:0;font-size:14.5px;color:var(--muted)}
+.cols .col p strong{color:var(--ink);font-weight:600}
+
+footer{border-top:1px solid var(--line);padding:34px 0 60px;color:var(--faint);font-size:13px}
+footer .wrap{display:flex;gap:24px;flex-wrap:wrap;align-items:baseline}
+footer .mono{color:var(--faint)}
+
+.placeholder{outline:1px dashed var(--warn);outline-offset:4px}
+@media(max-width:640px){.bar-row{grid-template-columns:80px 1fr 64px;gap:10px}.topbar .meta span:not(.keep){display:none}body{background-image:none}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-in">
+    <span class="wordmark"><span class="dot"></span>HELM<small>ARTIFACT</small></span>
+    <div class="meta">
+      <span class="keep">TYPE·<b>{{TYPE}}</b></span>
+      <span>{{DATE}}</span>
+      <button class="theme-toggle" id="tt" type="button">◐ THEME</button>
+    </div>
+  </div>
+</header>
+
+<main data-document-root>
+  <!-- 00 · THESIS — the bounded claim, before any background -->
+  <section class="hero">
+    <div class="wrap">
+      <div class="marker"><span class="no">00</span><span class="kind">Thesis</span></div>
+      <div class="read">
+        <span class="mono">SPECIMEN · replace kicker</span>
+        <h1 class="placeholder">这里写有边界的<span class="accent-word">核心结论</span>,不是标题党。</h1>
+        <p class="claim placeholder">一句展开:读者的问题是什么,你的短答案是什么,适用到哪里。删掉每个 placeholder class。</p>
+      </div>
+      <div class="metastrip">
+        <div class="cell"><span class="k">关键指标</span><span class="v placeholder">value</span></div>
+        <div class="cell"><span class="k">对比</span><span class="v placeholder">value</span></div>
+        <div class="cell"><span class="k">样本</span><span class="v placeholder">value</span></div>
+        <div class="cell"><span class="k">置信</span><span class="v placeholder">value</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 01 · EVIDENCE — claims are not equal: verified / interpretation / proposal -->
+  <section>
+    <div class="wrap">
+      <div class="marker"><span class="no">01</span><span class="kind">Evidence · 证据账本</span></div>
+      <div class="read"><h2 class="placeholder">哪些是事实,哪些是解释</h2>
+      <p class="lead placeholder">事实、测量、解释、提议在语气和视觉上区分开。</p></div>
+      <table class="ledger">
+        <thead><tr><th>ID</th><th>判断</th><th>状态</th><th>最佳证据</th><th>边界</th></tr></thead>
+        <tbody class="placeholder">
+          <tr><td class="id">C01</td><td>已被证据支持的断言</td><td><span class="state verified">已验证</span></td><td class="src">源 + 方法</td><td class="src">适用范围</td></tr>
+          <tr><td class="id">C02</td><td>你的架构解释</td><td><span class="state interp">解释</span></td><td class="src">推导依据</td><td class="src">非源文原话</td></tr>
+          <tr><td class="id">C03</td><td>尚未落地的下一步</td><td><span class="state proposal">提议</span></td><td class="src">缺口</td><td class="src">未验证</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 02 · DATA — magnitude only. Every chart carries a readable conclusion. -->
+  <section>
+    <div class="wrap">
+      <div class="marker"><span class="no">02</span><span class="kind">Data · 量级</span></div>
+      <div class="read"><h2 class="placeholder">图形只承担一个关系</h2>
+      <p class="lead placeholder">统一刻度、单位、基线。删掉与段落重复的图。</p></div>
+      <div class="figure placeholder">
+        <div class="cap"><h3>图标题</h3><span class="unit">单位 · 方向</span></div>
+        <div class="bars">
+          <div class="bar-row"><span class="lab">基线</span><div class="bar-track"><div class="bar-fill dim" style="width:100%"></div></div><span class="val">100</span></div>
+          <div class="bar-row"><span class="lab">方案</span><div class="bar-track"><div class="bar-fill" style="width:40%"></div></div><span class="val">40</span></div>
+        </div>
+        <p class="note">观察:<b>一句结论</b>。保留对象、单位、样本边界、测量条件。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 03 · PROTOCOL — when the field/param names ARE the contract (optional) -->
+  <section>
+    <div class="wrap">
+      <div class="marker"><span class="no">03</span><span class="kind">Protocol · 契约</span></div>
+      <div class="read"><h2 class="placeholder">实现细节本身是证据时才用</h2></div>
+      <div class="spec placeholder">
+        <div class="spec-head"><span>label · lang</span><span>note</span></div>
+<pre><span class="cm"># specimen — replace with real interface / commands</span>
+<span class="kw">field</span> = <span class="st">"value"</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- 04 · BOUNDARY — what it changes vs what it does not -->
+  <section>
+    <div class="wrap">
+      <div class="marker"><span class="no">04</span><span class="kind">Boundary · 边界与下一步</span></div>
+      <div class="read"><h2 class="placeholder">它改变什么 · 尚未做什么</h2></div>
+      <div class="cols placeholder">
+        <div class="col"><div class="mono">Promise · 已成立</div><p><strong>做到的事</strong>:用机制解释,不是口号。</p></div>
+        <div class="col"><div class="mono">Reality · 待落地</div><p><strong>没做的事</strong>:把未知项拉回实现层。</p></div>
+        <div class="col"><div class="mono">Next · 行动</div><p><strong>下一步</strong>:owner / checkpoint / 开放问题。</p></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span class="mono">HELM · HDOC/1.1</span>
+    <span class="mono">SOURCE · agent</span>
+    <span class="mono">RENDER · 无运行时 · 明暗自适应</span>
+  </div>
+</footer>
+
+<script>
+document.getElementById('tt').addEventListener('click',()=>{
+  const cur=document.documentElement.dataset.theme==='dark'?'light':'dark';
+  document.documentElement.dataset.theme=cur;
+  try{localStorage.setItem('helm:theme',cur);}catch(_){}
+});
+</script>
+</body>
+</html>

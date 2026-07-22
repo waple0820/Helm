@@ -1,0 +1,392 @@
+#!/usr/bin/env python3
+"""Helm — local-first artifact library for AI agents.
+
+One tiny CLI, Python standard library only, zero runtime dependency.
+
+    helm init            set the library path + install the authoring skill
+    helm new  <title>    scaffold a standalone HDOC artifact into the library
+    helm index           rescan the library and rebuild catalog.json
+    helm serve           serve the gallery + library over static HTTP
+    helm check <file>    validate a file against the HDOC contract
+
+The library is just a folder. Each artifact is one self-contained HTML file
+at  <library>/<slug>/index.html  carrying an inline Helm manifest. Nothing
+here talks to a database, a daemon, or the network.
+"""
+
+from __future__ import annotations
+
+import argparse
+import datetime as _dt
+import http.server
+import json
+import os
+import re
+import shutil
+import socketserver
+import sys
+import unicodedata
+from pathlib import Path
+
+SCHEMA = "HDOC/1.1"
+REPO_ROOT = Path(__file__).resolve().parent.parent
+CONFIG_PATH = Path.home() / ".helm" / "config.json"
+MANIFEST_RE = re.compile(
+    r'<script[^>]+type=["\']application/helm\+json["\'][^>]*>(.*?)</script>',
+    re.DOTALL | re.IGNORECASE,
+)
+DOC_TYPES = {
+    "report", "brief", "reference", "dashboard",
+    "decision", "research", "benchmark", "note",
+}
+
+C = {
+    "dim": "\033[2m", "b": "\033[1m", "cy": "\033[36m",
+    "gr": "\033[32m", "yl": "\033[33m", "rd": "\033[31m", "x": "\033[0m",
+}
+if not sys.stdout.isatty():
+    C = {k: "" for k in C}
+
+
+def say(msg: str) -> None:
+    print(msg)
+
+
+def die(msg: str) -> None:
+    print(f"{C['rd']}helm: {msg}{C['x']}", file=sys.stderr)
+    raise SystemExit(1)
+
+
+def today() -> str:
+    return _dt.date.today().isoformat()
+
+
+# --------------------------------------------------------------------------- config
+
+def load_config() -> dict:
+    if CONFIG_PATH.exists():
+        try:
+            return json.loads(CONFIG_PATH.read_text("utf-8"))
+        except json.JSONDecodeError:
+            die(f"corrupt config at {CONFIG_PATH}")
+    return {}
+
+
+def save_config(cfg: dict) -> None:
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    CONFIG_PATH.write_text(json.dumps(cfg, indent=2) + "\n", "utf-8")
+
+
+def library_dir(explicit: str | None = None) -> Path:
+    if explicit:
+        return Path(explicit).expanduser().resolve()
+    env = os.environ.get("HELM_LIBRARY")
+    if env:
+        return Path(env).expanduser().resolve()
+    cfg = load_config()
+    if cfg.get("library"):
+        return Path(cfg["library"]).expanduser().resolve()
+    return (REPO_ROOT / "library").resolve()
+
+
+# --------------------------------------------------------------------------- slug
+
+def slugify(text: str) -> str:
+    text = unicodedata.normalize("NFKD", text)
+    ascii_text = text.encode("ascii", "ignore").decode("ascii").lower()
+    ascii_text = re.sub(r"[^a-z0-9]+", "-", ascii_text).strip("-")
+    if not ascii_text:
+        # non-latin title: keep a stable hash-free fallback from code points
+        ascii_text = "artifact-" + "-".join(str(ord(c)) for c in text[:4] if c.strip())
+    return ascii_text[:60] or "artifact"
+
+
+# --------------------------------------------------------------------------- manifest
+
+def read_manifest(html: str) -> dict | None:
+    m = MANIFEST_RE.search(html)
+    if not m:
+        return None
+    try:
+        return json.loads(m.group(1))
+    except json.JSONDecodeError:
+        return None
+
+
+# --------------------------------------------------------------------------- commands
+
+def cmd_init(args) -> None:
+    lib = library_dir(args.library)
+    lib.mkdir(parents=True, exist_ok=True)
+    cfg = load_config()
+    cfg["library"] = str(lib)
+    save_config(cfg)
+    say(f"{C['gr']}library{C['x']}  {lib}")
+    say(f"{C['gr']}config{C['x']}   {CONFIG_PATH}")
+
+    # install the authoring skill into detected agents
+    skill_src = REPO_ROOT / "skill"
+    installed = []
+    claude_skills = Path.home() / ".claude" / "skills"
+    if (Path.home() / ".claude").exists():
+        dest = claude_skills / "helm-report"
+        claude_skills.mkdir(parents=True, exist_ok=True)
+        if dest.exists():
+            shutil.rmtree(dest)
+        shutil.copytree(skill_src, dest)
+        installed.append(f"Claude Code  {dest}")
+
+    if installed:
+        say("")
+        say(f"{C['b']}skill installed{C['x']}")
+        for line in installed:
+            say(f"  {line}")
+
+    say("")
+    say(f"{C['b']}next{C['x']}")
+    say(f"  export HELM_LIBRARY={lib}          {C['dim']}# so any agent knows the target{C['x']}")
+    say(f"  bin/helm new \"My first report\"     {C['dim']}# scaffold an artifact{C['x']}")
+    say(f"  bin/helm serve                     {C['dim']}# browse the gallery{C['x']}")
+    say("")
+    say(f"{C['dim']}Codex / other agents: point them at skill/SKILL.md and set HELM_LIBRARY.{C['x']}")
+
+
+def cmd_new(args) -> None:
+    lib = library_dir(args.library)
+    lib.mkdir(parents=True, exist_ok=True)
+    template = REPO_ROOT / "skill" / "template.html"
+    if not template.exists():
+        die("skill/template.html missing")
+
+    title = args.title
+    slug = args.id or slugify(title)
+    doc_type = args.type
+    if doc_type not in DOC_TYPES:
+        die(f"unknown type {doc_type!r}; expected one of {', '.join(sorted(DOC_TYPES))}")
+
+    art_dir = lib / slug
+    dest = art_dir / "index.html"
+    if dest.exists() and not args.force:
+        die(f"{dest} exists; pass --force to overwrite")
+    art_dir.mkdir(parents=True, exist_ok=True)
+
+    html = template.read_text("utf-8")
+    manifest = {
+        "schema": SCHEMA,
+        "id": slug,
+        "title": title,
+        "type": doc_type,
+        "summary": args.summary or "",
+        "tags": [t for t in (args.tags or "").split(",") if t.strip()],
+        "source": args.source or os.environ.get("HELM_AGENT", "agent"),
+        "created": today(),
+        "updated": today(),
+    }
+    manifest_json = json.dumps(manifest, ensure_ascii=False, indent=2)
+
+    html = _replace_between(html, "helm+json", manifest_json)
+    html = html.replace("{{TITLE}}", _escape(title))
+    html = html.replace("{{SUMMARY}}", _escape(manifest["summary"]))
+    html = html.replace("{{TYPE}}", doc_type.upper())
+    html = html.replace("{{DATE}}", today())
+    dest.write_text(html, "utf-8")
+
+    say(f"{C['gr']}created{C['x']}  {dest}")
+    say(f"{C['dim']}edit it, replace every specimen, then:{C['x']}")
+    say("  bin/helm check " + str(dest))
+    say("  bin/helm index")
+
+
+def _escape(s: str) -> str:
+    return (s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
+
+
+def _replace_between(html: str, marker: str, payload: str) -> str:
+    """Replace the body of the <script type=...marker...> block, keep the tags."""
+    pat = re.compile(
+        r'(<script[^>]+type=["\']application/' + re.escape(marker)
+        + r'["\'][^>]*>)(.*?)(</script>)',
+        re.DOTALL | re.IGNORECASE,
+    )
+    if not pat.search(html):
+        return html
+    return pat.sub(lambda m: m.group(1) + "\n" + payload + "\n" + m.group(3), html, count=1)
+
+
+def cmd_index(args) -> None:
+    lib = library_dir(args.library)
+    if not lib.exists():
+        die(f"library not found: {lib} (run: helm init)")
+
+    entries = []
+    skipped = []
+    for html_file in sorted(lib.glob("*/index.html")):
+        html = html_file.read_text("utf-8", errors="replace")
+        manifest = read_manifest(html)
+        slug = html_file.parent.name
+        if not manifest:
+            skipped.append(slug)
+            continue
+        stat = html_file.stat()
+        entries.append({
+            "id": manifest.get("id", slug),
+            "slug": slug,
+            "title": manifest.get("title", slug),
+            "type": manifest.get("type", "note"),
+            "summary": manifest.get("summary", ""),
+            "tags": manifest.get("tags", []),
+            "source": manifest.get("source", ""),
+            "created": manifest.get("created", ""),
+            "updated": manifest.get("updated", ""),
+            "path": f"{slug}/index.html",
+            "bytes": stat.st_size,
+        })
+
+    entries.sort(key=lambda e: (e.get("updated") or "", e.get("created") or ""), reverse=True)
+    catalog = {
+        "schema": SCHEMA,
+        "generated": today(),
+        "count": len(entries),
+        "artifacts": entries,
+    }
+    out = lib / "catalog.json"
+    out.write_text(json.dumps(catalog, ensure_ascii=False, indent=2) + "\n", "utf-8")
+
+    say(f"{C['gr']}indexed{C['x']}  {len(entries)} artifact(s) -> {out}")
+    if skipped:
+        say(f"{C['yl']}skipped{C['x']}  {len(skipped)} without a manifest: {', '.join(skipped)}")
+
+
+def cmd_check(args) -> None:
+    path = Path(args.file).expanduser()
+    if not path.exists():
+        die(f"no such file: {path}")
+    html = path.read_text("utf-8", errors="replace")
+    problems, warnings = _contract_problems(html)
+
+    for w in warnings:
+        say(f"{C['yl']}warn{C['x']}  {w}")
+    if problems:
+        for p in problems:
+            say(f"{C['rd']}fail{C['x']}  {p}")
+        raise SystemExit(1)
+    say(f"{C['gr']}ok{C['x']}    {path} passes the HDOC/{SCHEMA.split('/')[1]} contract")
+
+
+def _contract_problems(html: str) -> tuple[list[str], list[str]]:
+    problems, warnings = [], []
+    manifest = read_manifest(html)
+    if manifest is None:
+        problems.append('missing inline manifest <script type="application/helm+json">')
+    else:
+        for key in ("id", "title", "type"):
+            if not manifest.get(key):
+                problems.append(f"manifest missing required field: {key}")
+        t = manifest.get("type")
+        if t and t not in DOC_TYPES:
+            problems.append(f"manifest.type {t!r} not in {sorted(DOC_TYPES)}")
+
+    low = html.lower()
+    if "<main" not in low:
+        problems.append("no semantic <main> document root")
+    if "placeholder" in low or "{{title}}" in low:
+        problems.append("unreplaced specimen/placeholder content remains")
+
+    # standalone: no external runtime dependency
+    for pat, label in (
+        (r'<script[^>]+src=', "external <script src=> (must inline)"),
+        (r'<link[^>]+rel=["\']stylesheet["\']', "external stylesheet <link> (must inline)"),
+        (r'@import\s', "CSS @import (must inline)"),
+    ):
+        if re.search(pat, html, re.IGNORECASE):
+            problems.append(f"not self-contained: {label}")
+    if re.search(r'src=["\']https?://', html, re.IGNORECASE):
+        warnings.append("remote asset URL found; embed as data: URI for durability")
+
+    return problems, warnings
+
+
+def cmd_serve(args) -> None:
+    lib = library_dir(args.library)
+    # serve repo root so /gallery and the library are both reachable
+    root = REPO_ROOT
+    # expose the library at a stable path regardless of where it lives
+    link = root / "library"
+    external = lib.resolve() != link.resolve()
+    if external and not link.exists():
+        try:
+            link.symlink_to(lib)
+        except OSError:
+            die(f"library is at {lib}; symlink it to {link} or run serve from there")
+
+    port = args.port
+    handler = _quiet_handler(root)
+
+    class Server(socketserver.TCPServer):
+        allow_reuse_address = True
+
+    try:
+        httpd = Server(("127.0.0.1", port), handler)
+    except OSError as exc:
+        die(f"cannot bind 127.0.0.1:{port} ({exc}); try --port <other>")
+    with httpd:
+        say(f"{C['gr']}serving{C['x']}  http://127.0.0.1:{port}/gallery/")
+        say(f"{C['dim']}library  {lib}{C['x']}")
+        say(f"{C['dim']}Ctrl-C to stop{C['x']}")
+        try:
+            httpd.serve_forever()
+        except KeyboardInterrupt:
+            say("\nstopped")
+
+
+def _quiet_handler(root: Path):
+    class Handler(http.server.SimpleHTTPRequestHandler):
+        def __init__(self, *a, **kw):
+            super().__init__(*a, directory=str(root), **kw)
+
+        def log_message(self, fmt, *a):  # quiet
+            pass
+    return Handler
+
+
+# --------------------------------------------------------------------------- entry
+
+def main(argv=None) -> int:
+    p = argparse.ArgumentParser(prog="helm", description=__doc__.splitlines()[0])
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    sp = sub.add_parser("init", help="set library path + install the authoring skill")
+    sp.add_argument("--library", help="library directory (default: ./library)")
+    sp.set_defaults(fn=cmd_init)
+
+    sp = sub.add_parser("new", help="scaffold a standalone HDOC artifact")
+    sp.add_argument("title")
+    sp.add_argument("--id", help="stable slug (default: from title)")
+    sp.add_argument("--type", default="report")
+    sp.add_argument("--summary", default="")
+    sp.add_argument("--tags", default="", help="comma-separated")
+    sp.add_argument("--source", default="", help="agent name")
+    sp.add_argument("--library")
+    sp.add_argument("--force", action="store_true")
+    sp.set_defaults(fn=cmd_new)
+
+    sp = sub.add_parser("index", help="rebuild catalog.json")
+    sp.add_argument("--library")
+    sp.set_defaults(fn=cmd_index)
+
+    sp = sub.add_parser("check", help="validate the HDOC contract")
+    sp.add_argument("file")
+    sp.set_defaults(fn=cmd_check)
+
+    sp = sub.add_parser("serve", help="static HTTP for gallery + library")
+    sp.add_argument("--port", type=int, default=4173)
+    sp.add_argument("--library")
+    sp.set_defaults(fn=cmd_serve)
+
+    args = p.parse_args(argv)
+    args.fn(args)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

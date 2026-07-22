@@ -1,21 +1,32 @@
-# Helm artifact handoff
+# Helm artifact handoff (for agents)
 
-Start by reading [`docs/CODEX-MEMORY.md`](docs/CODEX-MEMORY.md). If the current agent platform offers repository-scoped persistent memory, inject its **Memory payload** at that scope; otherwise reread the checked-in file at the start of each task. Do not put tokens, credentials, private artifacts, or machine addresses into project memory.
+You are producing a durable HTML report for a person to read and keep. The
+target is one **self-contained `HDOC/1.1` file** in Helm's cool-grey design
+system, dropped into a local folder.
 
-For any AI-generated HTML that is meant to be retained, read [`AI-GUIDE.md`](AI-GUIDE.md), [`docs/REPORT-DESIGN-STANDARD.md`](docs/REPORT-DESIGN-STANDARD.md), and the full [`docs/HTML-DOCUMENT-SPEC.md`](docs/HTML-DOCUMENT-SPEC.md) before writing it. Produce one complete, self-contained `HDOC/1.0` file; do not submit Markdown fragments, partial drafts, or executable HTML. The report must be answer-first: make the route from question or decision to evidence, interpretation, and next action or boundary visible rather than producing a landing-page-style document.
+1. Read [`skill/SKILL.md`](skill/SKILL.md) for the workflow, and
+   [`skill/design-system.md`](skill/design-system.md) before writing any HTML.
+   Look at [`skill/components.html`](skill/components.html) for the rendered
+   component vocabulary. Do not imitate the visual style from prose alone.
+2. Inventory the claims first: label each material relationship (comparison,
+   sequence, hierarchy, magnitude, composition, uncertainty, claim strength,
+   action) and its evidence state, then bind each to the smallest component.
+3. Scaffold and fill:
 
-For a substantial report, do not imitate the visual style from prose alone. Run `scripts/helm-report list`, select the closest Profile, scaffold the report with `scripts/helm-report new`, and bind each important relationship to a registered component. Replace all specimen content, remove every `placeholder` marker, and make `scripts/helm-report check output.html` pass before submission. The rendered vocabulary is in [`authoring/component-gallery.html`](authoring/component-gallery.html).
+   ```bash
+   bin/helm new "Decision-relevant title" --type report --source your-agent-name
+   # edit $HELM_LIBRARY/<slug>/index.html — replace EVERY specimen,
+   # remove every `placeholder`, delete unused components.
+   bin/helm check $HELM_LIBRARY/<slug>/index.html   # must pass
+   bin/helm index
+   ```
 
-For a local clone, run this once before the first handoff:
+Set `$HELM_LIBRARY` (or run `bin/helm init` once) so any agent knows the target
+folder. No `bin/helm`? Copy `skill/template.html` and edit the inline
+`application/helm+json` manifest by hand.
 
-```bash
-scripts/helm-agent-bootstrap --agent-name "your-agent-name"
-```
-
-Then submit the final file exactly once after local validation:
-
-```bash
-scripts/helm-submit output.html --source "your-agent-name"
-```
-
-Run the submission from the target Codex/project root. Helm records that workspace as the artifact's catalog project when the source manifest does not already declare `project`; if needed, pass `--project-id` and `--project-name` explicitly. The command only hands the artifact revision to the owner's inbox. It does not grant direct access to the browser library. Keep the same manifest ID when revising the same logical artifact; Helm preserves distinct bytes as immutable revisions and asks the owner before advancing the current version. Use a new ID for a different document or explicit fork. On `422`, correct the HDOC contract violation before resubmitting.
+Produce one complete, answer-first document — not Markdown, not a fragment, not a
+partial draft. Keep the manifest `id` stable when revising the same logical
+artifact; use a new id for a different document. Do not add a dependency on a
+host app, external script, remote asset, or network service. Do not reintroduce
+sharing, publishing, or a server — the library is local and personal by design.
