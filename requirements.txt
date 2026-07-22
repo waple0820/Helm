@@ -1,2 +1,0 @@
-# Helm Share uses only the Python standard library. This marker selects the
-# Python CNB runtime on source-based deployment platforms.

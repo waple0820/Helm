@@ -3,6 +3,15 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+# Helm: the library is LOCAL and PERSONAL — never commit artifacts. This repo is
+# public; artifacts (which may be internal/confidential) stay on the local disk
+# only. catalog.json is derived (rebuild with `helm index`).
+library/*
+!library/.gitkeep
+
+# Personal report outputs dropped at the repo root — never commit to this public repo
+/*.html
+
 # Helm-local design and generated artifact working files
 assets/drafts/
 /*-current-state-*.html

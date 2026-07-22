@@ -1,51 +1,53 @@
 # Helm architecture
 
-Helm is deliberately split into small, inspectable planes. A document can remain useful even when any optional plane is not running.
+Helm is a static browser app plus one Python-stdlib CLI. Nothing runs a
+database, a daemon, or the network. A document stays useful even with no tooling
+present.
 
 ## System map
 
 ```text
-                       final standalone HDOC/1.0 HTML
-                                       │
-                                       ▼
-  agent/project ── POST ──> Loopback Bridge ── review ──> Browser library
-                               immutable revisions            IndexedDB
-                                    │                            │
-                                    └── immutable inbox           ├── HARC export
-                                                                 ├── explicit folder sync
-                                                                 └── owner-selected Channel
-                                                                          │
-                                                                          ▼
-                                                     stable address + immutable revision
+agent / project
+  └─ complete HDOC/1.1 HTML
+       └─ write $HELM_LIBRARY/<slug>/index.html   (exact bytes, the record)
+             └─ helm index ─▶ catalog.json
+                   └─ gallery/ (static) ─▶ browse
 ```
 
-## Four planes
+## Three parts
 
-| Plane | Primary code | Responsibility | Trust boundary |
-| --- | --- | --- | --- |
-| Browser library | `index.html`, `app.js`, `channel-store.js`, `validator.js`, `archive-backup.js`, `folder-sync.js`, `repair.js` | Artifact / Revision history, workflow state, visual compare, catalog, safe reading, recovery, and explicit import. | The browser owns the personal library. |
-| Artifact contract | `docs/HTML-DOCUMENT-SPEC.md`, `AI-GUIDE.md`, `templates/` | Portable `HDOC/1.0` HTML with evidence, provenance, and visual reading structure. | Artifact authors must not rely on Helm to make a document intelligible. |
-| Agent handoff | `helm_bridge.py`, `scripts/helm-agent-bootstrap`, `scripts/helm-submit` | Authenticated loopback ingress; exact-byte inbox storage; idempotency and revision semantics. | Agents can submit, never import into browser storage. |
-| Intranet sharing | `helm_share_server.py`, `docs/INTRANET-SHARING.md` | Explicit publication to a stable Channel plus immutable content-addressed Revision addresses. | Visitors can read a selected shared file, never enumerate or alter the library. |
+| Part | Code | Responsibility |
+| --- | --- | --- |
+| Authoring | `skill/` | The `HDOC/1.1` contract, the cool-grey design system, the scaffold and rendered component vocabulary agents author against. |
+| Library + CLI | `bin/helm` | Scaffold, validate, index. The library is a folder; `catalog.json` is derived, never authoritative. |
+| Gallery | `gallery/` | A static page that reads `catalog.json` and links to originals. No server logic. |
 
-## Data invariants
+## Invariants
 
-1. **Original HTML is immutable.** A browser catalog overlay may improve title, project, tag, or source metadata without rewriting the stored file.
-2. **Identity is stable.** The manifest ID identifies the logical Artifact; changed bytes append an immutable Revision. A new ID means a different Artifact or explicit Fork.
-3. **The document is portable.** A finished artifact is a standalone `HDOC/1.0` file with a semantic root, embedded essential CSS, manifest, and provenance.
-4. **Import is owner-controlled.** The Bridge and an intranet share server cannot mutate IndexedDB.
-5. **Publication is explicit.** Sharing produces a content-addressed read-only copy and may atomically advance one stable Channel address outside the browser library and Git checkout.
+1. **The filesystem is the library.** One folder per artifact, one `index.html`.
+   The original bytes are the record; `catalog.json` is a derived index and can
+   be rebuilt at any time with `helm index`.
+2. **Artifacts are portable.** Each is a standalone `HDOC/1.1` file with a
+   semantic root, embedded CSS, an inline manifest, and provenance. It needs
+   nothing from Helm to be readable.
+3. **Publishing is writing a file.** No inbox, no review gate, no publish state.
+   The library is local and personal.
+4. **No new runtime dependency.** Anything added must preserve the local-first,
+   zero-dependency, durable-original guarantees. No framework build, server DB,
+   or cloud.
 
-## Repository layout
+## What was removed (and why)
 
-The root remains intentionally small because the product is a static browser application plus Python standard-library services. Browser modules stay adjacent to the entry page; reusable standards and operational contracts live under `docs/`; user-facing starters live under `templates/`; and behavior is covered by `tests/`.
+The former sharing / publishing / intranet plane, the loopback Bridge inbox, the
+IndexedDB browser library, folder-sync, archive-backup, and the Draft/Reviewed/
+Published state machine were all removed. For a single-person, local library they
+were ceremony without payoff: the filesystem is the library, and a person's own
+files need no import gate.
 
-Do not introduce a framework build pipeline, server database, or cloud dependency merely to reorganize files. A new dependency needs to preserve Helm's local-first and durable-original guarantees.
+## Reading order
 
-## Reading order for contributors
-
-1. [`README.md`](../README.md) — product promise and local start.
-2. [`HTML-DOCUMENT-SPEC.md`](HTML-DOCUMENT-SPEC.md) — artifact interchange contract.
-3. [`AGENT-BRIDGE.md`](AGENT-BRIDGE.md) or [`INTRANET-SHARING.md`](INTRANET-SHARING.md) — the relevant server boundary.
-4. `app.js` or the corresponding Python service — implementation.
-5. The matching test in `tests/` — observable behavior and regression guard.
+1. [`README.md`](../README.md) — the whole model.
+2. [`skill/SKILL.md`](../skill/SKILL.md) — authoring workflow.
+3. [`skill/design-system.md`](../skill/design-system.md) — the visual standard.
+4. [`HDOC-SPEC.md`](HDOC-SPEC.md) — the file contract `helm check` enforces.
+5. `bin/helm` — the implementation.

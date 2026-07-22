@@ -1,124 +1,79 @@
 # Helm
 
-[![Verify](https://github.com/waple0820/Helm/actions/workflows/verify.yml/badge.svg)](https://github.com/waple0820/Helm/actions/workflows/verify.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-1f6feb.svg)](LICENSE)
+<p align="center"><strong>A local-first artifact library for HTML that AI agents produce — for one person to read and keep.</strong></p>
 
-<p align="center">
-  <img src="assets/helm-mark.png" width="96" height="96" alt="Helm logo" />
-</p>
+Helm does two things well:
 
-<p align="center"><strong>A local-first artifact repository for work produced by AI agents.</strong></p>
+- **Ease of use** — any coding agent (Claude Code, Codex, anything) hands off a
+  finished report by *writing one file*. No token, no daemon, no review inbox.
+- **Professionalism** — a built-in authoring skill produces self-contained
+  `HDOC/1.1` HTML in a distinct cool-grey engineering design system, so the
+  output actually looks and reads like a report.
 
-Helm keeps finished HTML reports, briefs, dashboards, and research as durable project artifacts. It preserves the original file, makes its contract inspectable, and gives people—not agents—the final say over what enters a personal library or gets shared.
+There is no sharing, publishing, cloud, or build step. The library is a folder.
+A static gallery reads it back.
 
-![Helm library showing project navigation, agent-authored reports, document inspection, and intranet sharing](assets/helm-library.jpg)
+## The whole model
 
-## Why Helm
+```text
+agent  ──writes──▶  $HELM_LIBRARY/<slug>/index.html   (standalone HDOC/1.1)
+                          │
+                     helm index  ──▶  catalog.json
+                          │
+                     gallery/  ──▶  static browse (python http, no logic)
+```
 
-- **Originals remain evidence.** Helm indexes, exports, backs up, and shares the exact HTML bytes; it never silently rewrites the source artifact.
-- **Agents have an authoring system.** `HDOC/1.0`, report Profiles, reusable visual components, and a preflight linter turn evidence into portable reports instead of prose with a borrowed skin.
-- **The owner keeps control.** Agent output arrives in a reviewable inbox. Browser storage, imports, and intranet publication remain deliberate human actions.
-- **Artifacts have history.** Immutable revisions, Draft / Reviewed / Published state, visual comparison, Fork lineage, and a stable Channel address keep change legible without rewriting evidence.
+- **The library is the filesystem.** One folder per artifact, one `index.html`
+  inside. The original bytes are the record.
+- **Publishing = writing a file + reindexing.** Nothing gates it.
+- **Every artifact is portable.** Self-contained HTML, embedded CSS, inline
+  manifest, light/dark, no dependency on Helm to be readable.
 
 ## Start in one minute
 
-The machine running Helm-aware agents must have outbound Internet access so it can clone or update the repository and let agents reach the external sources used in their reports. The Helm library itself has no third-party runtime dependency and can continue serving retained local artifacts after the repository has been cloned.
-
 ```bash
 git clone https://github.com/waple0820/Helm.git
-cd html-displayer
-
-# Browser library + optional read-only intranet sharing service.
-python3 helm_share_server.py --host 127.0.0.1 --port 4173
+cd Helm
+bin/helm init                 # set the library path + install the skill
+bin/helm serve                # http://127.0.0.1:4173/gallery/
 ```
-
-Open [http://127.0.0.1:4173](http://127.0.0.1:4173). The library is stored in that browser's IndexedDB; no account, cloud sync, build step, or external font is required.
-
-## How an artifact moves
-
-```text
-Agent / project
-  └─ complete HDOC/1.0 HTML
-       └─ Helm Bridge inbox ── owner review ──> browser library (IndexedDB)
-             │                                      │
-             └─ exact original bytes                ├─ HARC backup / explicit folder sync
-                                                    └─ reviewed Channel + immutable Revisions
-```
-
-The important boundary is deliberate: submitting to the Bridge is a handoff, not permission to modify the browser library.
 
 ## Hand an artifact to Helm
 
-For the machine that owns the library, bootstrap the loopback Bridge once:
+From any agent, once the analysis is done:
 
 ```bash
-scripts/helm-agent-bootstrap --agent-name codex
+bin/helm new "Decision-relevant title" --type decision --source claude-code
+# → edit $HELM_LIBRARY/<slug>/index.html: replace every specimen
+bin/helm check $HELM_LIBRARY/<slug>/index.html   # HDOC contract must pass
+bin/helm index                                   # rebuild catalog.json
 ```
 
-From the project that produced a final report, brief, reference note, or dashboard:
+The authoring standard the agent follows lives in [`skill/`](skill/):
+[`SKILL.md`](skill/SKILL.md) (workflow), [`design-system.md`](skill/design-system.md)
+(the cool-grey identity + component grammar), and
+[`components.html`](skill/components.html) (rendered vocabulary).
 
-```bash
-/path/to/html-displayer/scripts/helm-submit output.html --source "your-agent-name"
-```
+## CLI
 
-The final artifact appears in **Agent inbox** for review and explicit import. Read [`AGENTS.md`](AGENTS.md) first when authoring with an agent; [`AI-GUIDE.md`](AI-GUIDE.md) contains the concise generation entry point.
-
-For substantial reports, scaffold the visual grammar before writing the final HTML:
-
-```bash
-scripts/helm-report list
-scripts/helm-report new --profile benchmark --title "Report title" --id report-id --output output.html
-# Replace the outlined specimens with real evidence and remove placeholder markers.
-scripts/helm-report check output.html
-```
-
-Open the rendered [component studio](authoring/component-gallery.html) to inspect the registered KPI, evidence, comparison, magnitude, uncertainty, flow, hierarchy, trace, case, and roadmap components.
-
-## Repository guide
-
-| Path | Purpose |
+| Command | Does |
 | --- | --- |
-| [`index.html`](index.html), [`app.js`](app.js), [`channel-store.js`](channel-store.js), [`styles.css`](styles.css) | Static browser library, Artifact / Revision store, safe reader, and interface. |
-| [`validator.js`](validator.js) | Browser-side `HDOC/1.0` inspection and portability warnings. |
-| [`helm_bridge.py`](helm_bridge.py) | Loopback-only agent ingress and immutable inbox records. |
-| [`helm_share_server.py`](helm_share_server.py) | Static app plus owner-only publication of immutable read-only share links. |
-| [`docs/`](docs/) | Format contract, architecture, report design, storage, Bridge, and sharing references. |
-| [`templates/`](templates/) | Compact standalone compatibility starters. |
-| [`authoring/component-gallery.html`](authoring/component-gallery.html) | Rendered catalog of the reusable visual grammar. |
-| [`scripts/helm-report`](scripts/helm-report) | Agent report Profiles, component scaffolding, Gallery generation, and visual-contract checks. |
-| [`scripts/`](scripts/) | Clone bootstrap, report authoring, and final agent handoff commands. |
-| [`tests/`](tests/) | Contract, Bridge, share-store, and template regression checks. |
+| `helm init` | set the library path, install the skill into detected agents |
+| `helm new <title>` | scaffold a standalone HDOC artifact into the library |
+| `helm index` | rescan the library, rebuild `catalog.json` |
+| `helm serve` | static HTTP for the gallery + library |
+| `helm check <file>` | validate the HDOC/1.1 contract |
 
-Read [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the data boundaries and [`docs/HTML-DOCUMENT-SPEC.md`](docs/HTML-DOCUMENT-SPEC.md) for the interoperable artifact contract.
+Python standard library only. No dependencies.
 
-## Develop and verify
+## Layout
 
-Helm has no package-install step. Run the same checks used by CI:
-
-```bash
-python3 -m unittest discover -s tests -p 'test_*.py'
-python3 -m http.server 4183 --bind 127.0.0.1
+```text
+bin/helm            the CLI (one file)
+skill/              authoring skill: SKILL.md, design-system.md, template.html, components.html
+gallery/            static browser (reads library/catalog.json)
+library/            the library — one folder per artifact + catalog.json
+docs/               ARCHITECTURE.md, HDOC-SPEC.md
 ```
 
-Open the browser smoke pages at `http://127.0.0.1:4183/tests/contract-smoke.html`, `channel-store-smoke.html`, and `repair-smoke.html`. The production share server deliberately blocks `/tests`; use this isolated static development port for browser checks.
-
-For a reviewed remote intranet installation, use [`scripts/deploy-remote`](scripts/deploy-remote). It deploys only the committed tree, tests it before activation, keeps runtime shares outside the release, and rolls back a failed health check. See [`docs/INTRANET-SHARING.md`](docs/INTRANET-SHARING.md).
-
-## Scope and boundaries
-
-Helm is intentionally a single-person, local-first archive. It does not provide cloud sync, multi-user collaboration, a WYSIWYG editor, background filesystem watching, RAG chat, OCR, or a mobile app. Those belong only after the original-file, recovery, and handoff contracts prove durable.
-
-## Documentation
-
-- [`AGENTS.md`](AGENTS.md) — instructions for coding agents entering the repository.
-- [`AI-GUIDE.md`](AI-GUIDE.md) — concise HTML generation and handoff guide.
-- [`docs/HTML-DOCUMENT-SPEC.md`](docs/HTML-DOCUMENT-SPEC.md) — `HDOC/1.0` interchange contract.
-- [`docs/REPORT-DESIGN-STANDARD.md`](docs/REPORT-DESIGN-STANDARD.md) — answer-first report and visual-evidence standard.
-- [`docs/AGENT-BRIDGE.md`](docs/AGENT-BRIDGE.md) — Bridge API, security model, and conflict semantics.
-- [`docs/LOCAL-ARCHIVE-LAYOUT.md`](docs/LOCAL-ARCHIVE-LAYOUT.md) — portable `HARC/1.0` archive format.
-- [`docs/INTRANET-SHARING.md`](docs/INTRANET-SHARING.md) — owner-controlled immutable sharing model.
-- [`docs/CHANNELS.md`](docs/CHANNELS.md) — Artifact, Revision, publication, comparison, and Fork semantics.
-
-## Contributing and security
-
-Contributions are welcome. Please read [`CONTRIBUTING.md`](CONTRIBUTING.md), preserve the immutable-original and no-secret boundaries, and run the verification command before opening a pull request. Helm is released under the [MIT License](LICENSE).
+MIT. Local-first, personal, no cloud.

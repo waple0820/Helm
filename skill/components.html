@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Helm · Component gallery</title>
+<script>
+(() => { const k='helm:theme'; let m='system'; try{const s=localStorage.getItem(k); if(['light','dark','system'].includes(s))m=s;}catch(_){}
+  document.documentElement.dataset.theme = m==='system'?(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):m; })();
+</script>
+<style>
+:root{--paper:#f7f8f9;--raised:#ffffff;--ink:#14171a;--muted:#61666d;--faint:#8b9098;--line:#e3e5e8;--line-strong:#cfd2d6;
+  --accent:#0e8ba8;--accent-ink:#0b6f86;--accent-wash:#e5f3f6;--ok:#1f8a5b;--warn:#b5751a;--grid:#eceef0;
+  --shadow:0 1px 0 rgba(20,23,26,.04),0 1px 3px rgba(20,23,26,.05);
+  --font-sans:"Inter",system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  --font-mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;}
+:root[data-theme="dark"]{--paper:#0f1115;--raised:#16191e;--ink:#e7e9ec;--muted:#9198a0;--faint:#6b727a;--line:#24272d;
+  --line-strong:#31353c;--accent:#28b6d4;--accent-ink:#5cc9e2;--accent-wash:#0e2830;--ok:#3fbf85;--warn:#d6a04a;--grid:#1b1e23;
+  --shadow:0 1px 0 rgba(0,0,0,.3),0 2px 8px rgba(0,0,0,.35);}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--font-sans);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.mono{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+.wrap{max-width:72rem;margin:0 auto;padding:0 clamp(20px,5vw,56px)}
+.top{border-bottom:1px solid var(--line);padding:18px 0}
+.top .wrap{display:flex;align-items:center;gap:12px}
+.dot{width:7px;height:7px;background:var(--accent);border-radius:50%;box-shadow:0 0 0 3px var(--accent-wash)}
+.top b{font-family:var(--font-mono);letter-spacing:.14em;font-size:13px}
+.masthead{padding:48px 0 8px}
+.masthead h1{font-size:clamp(28px,4vw,42px);font-weight:680;letter-spacing:-.02em;margin:12px 0 10px}
+.masthead p{color:var(--muted);max-width:40rem;margin:0}
+.spec-item{padding:40px 0;border-top:1px solid var(--line)}
+.spec-item .hd{display:flex;align-items:baseline;gap:14px;margin-bottom:6px}
+.spec-item .hd .no{font-family:var(--font-mono);color:var(--accent);font-size:12px}
+.spec-item .hd h2{font-size:22px;font-weight:640;margin:0}
+.spec-item .use{display:flex;gap:20px;flex-wrap:wrap;margin:0 0 22px}
+.spec-item .use span{font-size:13px;color:var(--muted)}
+.spec-item .use b{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);margin-right:6px}
+.demo{border:1px solid var(--line);border-radius:12px;background:var(--raised);padding:26px;box-shadow:var(--shadow)}
+
+/* shared component styles */
+h1,h2,h3{letter-spacing:-.01em;margin:0}
+.hero-demo .k{font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+.hero-demo h3{font-size:clamp(24px,3.5vw,36px);font-weight:680;line-height:1.08;margin:10px 0 12px}
+.hero-demo .accent-word{color:var(--accent-ink)}
+.hero-demo p{color:var(--muted);font-size:17px;margin:0;max-width:38rem}
+.metastrip{display:flex;flex-wrap:wrap;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.metastrip .cell{flex:1 1 auto;min-width:130px;padding:14px 18px;border-right:1px solid var(--line)}
+.metastrip .cell:last-child{border-right:none}
+.metastrip .kk{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);display:block;margin-bottom:5px}
+.metastrip .vv{font-family:var(--font-mono);font-size:14px;font-weight:600}
+.metastrip .vv.pos{color:var(--ok)}
+.ledger{width:100%;border-collapse:collapse;font-size:14px}
+.ledger th{text-align:left;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);padding:8px 12px;border-bottom:1px solid var(--line-strong)}
+.ledger td{padding:12px;border-bottom:1px solid var(--line);vertical-align:top}
+.ledger td.id{font-family:var(--font-mono);color:var(--accent);font-size:12px}
+.state{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;padding:3px 8px;border-radius:5px;font-weight:600;white-space:nowrap}
+.state.verified{background:color-mix(in srgb,var(--ok) 14%,transparent);color:var(--ok)}
+.state.interp{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent-ink)}
+.state.proposal{background:color-mix(in srgb,var(--warn) 15%,transparent);color:var(--warn)}
+.src{color:var(--muted);font-size:13px}
+.cap{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:18px;flex-wrap:wrap;gap:10px}
+.cap .unit{font-family:var(--font-mono);font-size:11px;color:var(--faint)}
+.bars{display:grid;gap:12px}
+.bar-row{display:grid;grid-template-columns:100px 1fr 70px;align-items:center;gap:12px}
+.bar-row .lab{font-family:var(--font-mono);font-size:12px;color:var(--muted)}
+.bar-track{height:24px;background:var(--grid);border-radius:5px;overflow:hidden}
+.bar-fill{height:100%;border-radius:5px;background:linear-gradient(90deg,var(--accent),var(--accent-ink))}
+.bar-fill.dim{background:var(--line-strong)}
+.bar-row .val{font-family:var(--font-mono);font-size:13px;text-align:right;font-weight:600}
+.note{margin:16px 0 0;font-size:13px;color:var(--muted);border-top:1px dashed var(--line);padding-top:12px}
+.note b{color:var(--accent-ink)}
+.specblk{border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.specblk .sh{display:flex;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--line);font-family:var(--font-mono);font-size:11px;color:var(--faint)}
+.specblk pre{margin:0;padding:16px;overflow-x:auto;font-family:var(--font-mono);font-size:13px;line-height:1.7}
+.specblk .cm{color:var(--faint)}.specblk .kw{color:var(--accent-ink)}.specblk .st{color:var(--ok)}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.cols .col{background:var(--raised);padding:20px}
+.cols .col .mono{margin-bottom:8px}
+.cols .col p{margin:0;font-size:14px;color:var(--muted)}
+.cols .col strong{color:var(--ink)}
+.toggle{margin-left:auto;border:1px solid var(--line-strong);background:var(--raised);color:var(--muted);font-family:var(--font-mono);font-size:11px;padding:5px 10px;border-radius:6px;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="top"><div class="wrap"><span class="dot"></span><b>HELM · COMPONENT GALLERY</b>
+  <button class="toggle" onclick="const c=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=c;try{localStorage.setItem('helm:theme',c)}catch(_){}">◐ THEME</button></div></div>
+
+<div class="wrap">
+  <div class="masthead">
+    <span class="mono">Cool-grey engineering · rendered vocabulary</span>
+    <h1>Component gallery</h1>
+    <p>每个组件承载一个关系。选能表达该断言的最小组件;关系不存在就删掉组件。规范见 <code>design-system.md</code>。</p>
+  </div>
+
+  <div class="spec-item">
+    <div class="hd"><span class="no">01</span><h2>Thesis hero</h2></div>
+    <div class="use"><span><b>关系</b>有边界的结论</span><span><b>用于</b>每篇开场</span><span><b>避免</b>无边界口号</span></div>
+    <div class="demo hero-demo">
+      <span class="k">SECTION · KICKER</span>
+      <h3>库就是<span class="accent-word">文件夹</span>,不是上线系统。</h3>
+      <p>一句展开:读者的问题、你的短答案、适用边界。</p>
+    </div>
+  </div>
+
+  <div class="spec-item">
+    <div class="hd"><span class="no">02</span><h2>Metastrip</h2></div>
+    <div class="use"><span><b>关系</b>关键指标一眼</span><span><b>用于</b>3–5 个数字撑起答案</span><span><b>避免</b>把所有数字堆这</span></div>
+    <div class="demo">
+      <div class="metastrip">
+        <div class="cell"><span class="kk">删除代码</span><span class="vv pos">~230 KB</span></div>
+        <div class="cell"><span class="kk">运行时依赖</span><span class="vv">0</span></div>
+        <div class="cell"><span class="kk">上传步骤</span><span class="vv">1</span></div>
+        <div class="cell"><span class="kk">server</span><span class="vv">static</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="spec-item">
+    <div class="hd"><span class="no">03</span><h2>Evidence ledger</h2></div>
+    <div class="use"><span><b>关系</b>判断不等价</span><span><b>用于</b>事实/解释/提议并存</span><span><b>避免</b>无状态卡片阵</span></div>
+    <div class="demo">
+      <table class="ledger">
+        <thead><tr><th>ID</th><th>判断</th><th>状态</th><th>证据</th><th>边界</th></tr></thead>
+        <tbody>
+          <tr><td class="id">C01</td><td>已被证据支持</td><td><span class="state verified">已验证</span></td><td class="src">源+方法</td><td class="src">适用范围</td></tr>
+          <tr><td class="id">C02</td><td>架构解释</td><td><span class="state interp">解释</span></td><td class="src">推导</td><td class="src">非原话</td></tr>
+          <tr><td class="id">C03</td><td>下一步</td><td><span class="state proposal">提议</span></td><td class="src">缺口</td><td class="src">未验证</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="spec-item">
+    <div class="hd"><span class="no">04</span><h2>Bar figure</h2></div>
+    <div class="use"><span><b>关系</b>量级/比较</span><span><b>用于</b>同刻度单一比较</span><span><b>避免</b>无单位无基线</span></div>
+    <div class="demo">
+      <div class="cap"><h3 style="font-size:16px">核心代码体积</h3><span class="unit">KB · 越低越好</span></div>
+      <div class="bars">
+        <div class="bar-row"><span class="lab">现在</span><div class="bar-track"><div class="bar-fill dim" style="width:100%"></div></div><span class="val">~305</span></div>
+        <div class="bar-row"><span class="lab">收敛后</span><div class="bar-track"><div class="bar-fill" style="width:24%"></div></div><span class="val">~72</span></div>
+      </div>
+      <p class="note">观察:约 <b>−76%</b>。该仓库快照静态估算,非运行时基准。</p>
+    </div>
+  </div>
+
+  <div class="spec-item">
+    <div class="hd"><span class="no">05</span><h2>Spec block</h2></div>
+    <div class="use"><span><b>关系</b>字段名即契约</span><span><b>用于</b>接口/命令本身是证据</span><span><b>避免</b>装饰性代码</span></div>
+    <div class="demo">
+      <div class="specblk">
+        <div class="sh"><span>agent handoff · shell</span><span>zero-auth</span></div>
+<pre><span class="cm"># 每篇:产出 → 写库 → 重建索引</span>
+write <span class="kw">$HELM_LIBRARY</span>/<span class="st">slug</span>/index.html
+helm index</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="spec-item">
+    <div class="hd"><span class="no">06</span><h2>Boundary columns</h2></div>
+    <div class="use"><span><b>关系</b>改变 vs 未做</span><span><b>用于</b>分开承诺与现实</span><span><b>避免</b>每句一卡</span></div>
+    <div class="demo">
+      <div class="cols">
+        <div class="col"><div class="mono">Promise · 已成立</div><p><strong>做到</strong>:用机制解释,不是口号。</p></div>
+        <div class="col"><div class="mono">Reality · 待落地</div><p><strong>没做</strong>:未知项拉回实现层。</p></div>
+        <div class="col"><div class="mono">Next · 行动</div><p><strong>下一步</strong>:owner / checkpoint。</p></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="height:56px"></div>
+</div>
+</body>
+</html>
